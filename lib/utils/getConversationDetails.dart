@@ -18,6 +18,7 @@ Future<Conversation> getConversationDetails(
   }
 
   try {
+    print("getConversationDetails ${customer.id} ${customer.externalId}");
     var res = await client.post(
       "https://" + p.baseUrl + "/api/conversations",
       headers: {
@@ -32,6 +33,7 @@ Future<Conversation> getConversationDetails(
         },
       ),
     );
+
     var data = jsonDecode(res.body)["data"];
     conv = Conversation(
       id: data["id"],
@@ -40,6 +42,7 @@ Future<Conversation> getConversationDetails(
       asigneeId: data["asignee_id"],
       createdAt: data["created_at"],
       read: data["read"],
+      messages: [],
     );
     sc(conv);
   } catch (e) {

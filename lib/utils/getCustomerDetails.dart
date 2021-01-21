@@ -60,6 +60,7 @@ Future<PapercupsCustomer> getCustomerDetails(
   } catch (e) {
     c = null;
   }
+  sc(c);
   client.close();
   return c;
 }

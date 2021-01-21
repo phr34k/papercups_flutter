@@ -1,4 +1,6 @@
 //Imports
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../models/models.dart';
 import '../utils/utils.dart';
@@ -27,6 +29,7 @@ class SendMessage extends StatefulWidget {
     @required this.props,
     @required this.textBalck,
     this.showDivider = true,
+    this.controller,
   }) : super(key: key);
 
   final Props props;
@@ -39,6 +42,7 @@ class SendMessage extends StatefulWidget {
   final Conversation conversation;
   final PhoenixSocket socket;
   final List<PapercupsMessage> messages;
+  final StreamController<PapercupsMessage> controller;
   final bool sending;
   final bool textBalck;
   final bool showDivider;
@@ -74,6 +78,7 @@ class _SendMessageState extends State<SendMessage> {
       widget.setState,
       widget.messages,
       widget.sending,
+      widget.controller,
     );
   }
 
@@ -157,22 +162,27 @@ void _sendMessage(
   Function setState,
   List<PapercupsMessage> messages,
   bool sending,
+  StreamController<PapercupsMessage> controller,
 ) {
   final text = tc.text;
   fn.requestFocus();
   if (text.trim().isEmpty || text == null) return null;
   tc.clear();
   var timeNow = DateTime.now();
+  var msg = PapercupsMessage(
+    body: text,
+    createdAt: timeNow,
+    sentAt: timeNow,
+    customer: PapercupsCustomer(),
+  );
+
+  if (controller != null) {
+    controller.add(msg);
+    return;
+  }
 
   setState(() {
-    messages.add(
-      PapercupsMessage(
-        body: text,
-        createdAt: timeNow,
-        sentAt: timeNow,
-        customer: PapercupsCustomer(),
-      ),
-    );
+    messages.add(msg);
   }, stateMsg: true);
 
   if (conversationChannel == null) {
