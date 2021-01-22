@@ -467,7 +467,11 @@ class PaperCupsActiveConversation {
 }
 */
 
-abstract class _PaperCupsMixin {
+typedef void RebuildFunction(void Function() fn, {bool stateMsg, bool animate});
+typedef void SetCustomerFunction(PapercupsCustomer c, {bool rebuild});
+typedef void SetConversationFunction(Conversation c);
+
+class PaperCupsController {
   StreamController<PapercupsMessage> _stateMessageController =
       StreamController<PapercupsMessage>();
   StreamController _stateStreamController = StreamController.broadcast();
@@ -487,6 +491,10 @@ abstract class _PaperCupsMixin {
   Map<String, Conversation> _conversations = {};
   // internal the current identified customer
   PapercupsCustomer _customer;
+  // internal rebuild function
+  RebuildFunction rebuild;
+  SetCustomerFunction setCustomer;
+  SetConversationFunction setConversation;
 
   //bool _connected = false;
   //List<PapercupsMessage> _messages = [];
@@ -535,6 +543,8 @@ abstract class _PaperCupsMixin {
 
       _socket.openStream.listen(
         (event) {
+          //var completer = Completer<bool>();
+          _channel = initChannelsEx(_socket, props, null);
           _stateStreamController.add(PaperCupsConnectedEvent());
         },
       );
@@ -555,10 +565,6 @@ abstract class _PaperCupsMixin {
   //void ondisconnected();
   //void onconversationloaded(String conversationId);
   //void onconversationunloaded(String conversationId);
-
-  void setCustomer(PapercupsCustomer c, {rebuild = false});
-  void setConversation(Conversation c);
-  void rebuild(void Function() fn, {bool stateMsg = false, animate = false});
 
   void setConversationChannel(String convId, PhoenixChannel c) {
     if (c == null) {
@@ -921,6 +927,23 @@ abstract class _PaperCupsMixin {
   }
 }
 
+abstract class _PaperCupsMixin {
+  PaperCupsController messagingController;
+  void rebuild(void Function() fn, {bool stateMsg = false, animate = false});
+  void setCustomer(PapercupsCustomer c, {rebuild = false});
+  void setConversation(Conversation c);
+  void initStateA(Props props) {
+    messagingController.rebuild = rebuild;
+    messagingController.setCustomer = setCustomer;
+    messagingController.setConversation = setConversation;
+    messagingController.initStateA(props);
+  }
+
+  void disposeA() {
+    messagingController.disposeA();
+  }
+}
+
 class _PaperCupsWidgetState2 extends State<PaperCupsWidgetB>
     with _PaperCupsMixin {
   ScrollController _controller = ScrollController();
@@ -940,11 +963,11 @@ class _PaperCupsWidgetState2 extends State<PaperCupsWidgetB>
       });
     }
 
-    _stateMessageController.stream.listen((event) {
+    messagingController._stateMessageController.stream.listen((event) {
       _sendMessageEx(widget.props, event);
     });
 
-    _sendingStatusChanged.listen((event) {
+    messagingController._sendingStatusChanged.listen((event) {
       if (event is PaperCupsConversationMessageSendEvent) {
         setState(() {
           _sending = true;
@@ -956,7 +979,7 @@ class _PaperCupsWidgetState2 extends State<PaperCupsWidgetB>
       }
     });
 
-    _stateStreamController.stream
+    messagingController._stateStreamController.stream
         .where((event) => event is PaperCupsConnectionEvent)
         .cast<PaperCupsConnectionEvent>()
         .listen((event) {
@@ -967,7 +990,7 @@ class _PaperCupsWidgetState2 extends State<PaperCupsWidgetB>
       }
     });
 
-    _stateStreamController.stream
+    messagingController._stateStreamController.stream
         .where((event) => event is PaperCupsConversationEvent)
         .cast<PaperCupsConversationEvent>()
         .listen((event) {
@@ -978,7 +1001,7 @@ class _PaperCupsWidgetState2 extends State<PaperCupsWidgetB>
       }
     });
 
-    _stateStreamController.stream.handleError((error) {
+    messagingController._stateStreamController.stream.handleError((error) {
       String _desc = error.toString();
       Alert.show(
         _desc,
@@ -1002,17 +1025,14 @@ class _PaperCupsWidgetState2 extends State<PaperCupsWidgetB>
 
   //@override
   void onconnected() {
-    //var completer = Completer<bool>();
-    _channel = initChannelsEx(_socket, widget.props, null);
-
     if (noConnection) {
       noConnection = false;
       rebuild(() {}, animate: true);
     }
 
-    fetch(widget.props, _conversation).then((failed) {
+    messagingController.fetch(widget.props, _conversation).then((failed) {
       if (failed) {
-        _stateStreamController.addError(
+        messagingController._stateStreamController.addError(
             "There was an issue retrieving your details. Please try again!");
       } else {
         if (mounted) setState(() {});
@@ -1040,8 +1060,8 @@ class _PaperCupsWidgetState2 extends State<PaperCupsWidgetB>
 
   @override
   void didChangeDependencies() {
-    connect(widget.props);
-    textBlack = isDarkText(widget.props, context);
+    messagingController.connect(widget.props);
+    textBlack = messagingController.isDarkText(widget.props, context);
     super.didChangeDependencies();
   }
 
@@ -1053,18 +1073,18 @@ class _PaperCupsWidgetState2 extends State<PaperCupsWidgetB>
             builder: (context) => PaperCupsWidgetB(props: widget.props)),
       );
     } else {
-      goto(widget.props, conversationId);
+      messagingController.goto(widget.props, conversationId);
     }
   }
 
   void newchat() {
-    goto(widget.props, null);
+    messagingController.goto(widget.props, null);
   }
 
   @override
   void setCustomer(PapercupsCustomer c, {rebuild = false}) {
     print("setCustomer.... ${c.id} ${c.externalId}");
-    _customer = c;
+    messagingController._customer = c;
     if (rebuild && mounted) setState(() {});
   }
 
@@ -1075,7 +1095,7 @@ class _PaperCupsWidgetState2 extends State<PaperCupsWidgetB>
     if (mounted) setState(() {});
   }
 
-  @override
+  //@override
   void rebuild(void Function() fn, {bool stateMsg = false, animate = false}) {
     _sending = stateMsg;
     if (mounted) setState(fn);
@@ -1103,17 +1123,17 @@ class _PaperCupsWidgetState2 extends State<PaperCupsWidgetB>
     Props p,
     PapercupsMessage msg,
   ) {
-    _sendMessage(p, _conversation, msg);
+    messagingController._sendMessage(p, _conversation, msg);
   }
 
   Widget conversationInbox(BuildContext context) {
     return SizedBox(
         height: 100,
         child: ListView.builder(
-          itemCount: _conversations.length,
+          itemCount: messagingController._conversations.length,
           itemBuilder: (context, index) {
-            Conversation conversation =
-                _conversations[_conversations.keys.elementAt(index)];
+            Conversation conversation = messagingController._conversations[
+                messagingController._conversations.keys.elementAt(index)];
 
             String conversationId = conversation.id;
             String body = conversation.messages != null
@@ -1156,7 +1176,7 @@ class _PaperCupsWidgetState2 extends State<PaperCupsWidgetB>
                   ),
                   FlatButton.icon(
                     onPressed: () {
-                      retry(widget.props);
+                      messagingController.retry(widget.props);
                     },
                     icon: Icon(Icons.refresh_rounded),
                     label: Text("Retry"),
@@ -1243,12 +1263,14 @@ class _PaperCupsWidgetState2 extends State<PaperCupsWidgetB>
                   clipBehavior:
                       widget.floatingSendMessage ? Clip.antiAlias : Clip.none,
                   child: (widget.props.requireEmailUpfront &&
-                          (_customer == null || _customer.email == null))
+                          (messagingController._customer == null ||
+                              messagingController._customer.email == null))
                       ? RequireEmailUpfront(setCustomer, widget.props,
                           textBlack, !widget.floatingSendMessage)
                       : SendMessage(
                           props: widget.props,
-                          controller: _stateMessageController,
+                          controller:
+                              messagingController._stateMessageController,
                           //customer: _customer,
                           //setCustomer: setCustomer,
                           //setConversation: setConversation,
