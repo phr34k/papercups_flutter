@@ -416,6 +416,57 @@ class ConversationPair {
   });
 }
 
+/*
+class PaperCupsActiveConversation {
+  Conversation _conversation;
+  Conversation get conversation {    
+    return _conversation;
+  }
+
+  Future<bool> selectChannel(
+      Conversation prevConversation, Conversation conversation
+      Function setConversationChannel,
+      Function onconversationunloaded,
+      Function onconversationloaded,
+      Function setConversationChannel,
+      
+      ) async {
+    String previousConversationId =
+        prevConversation != null ? prevConversation.id : null;
+    String newConversationId = conversation != null ? conversation.id : null;
+    print("selecting conversation id: ${newConversationId}");
+    //_messages.clear();
+    if (_conversations.containsKey(newConversationId)) {
+      //_messages.addAll(_conversations[conversationId].messages);
+      setConversationChannel(previousConversationId, null);
+      onconversationunloaded(previousConversationId);
+      //_conversationId = conversationId;
+      if (newConversationId == null) {
+        print("reset messages: ${newConversationId}");
+        setConversation(null);
+        setConversationChannel(newConversationId, null);
+      } else {
+        print("join conversation id: ${newConversationId}");
+        setConversation(_conversations[newConversationId]);
+        join(_conversations[newConversationId]);
+      }
+
+      onconversationloaded(newConversationId);
+      return true;
+    } else {
+      print("reset messages: ${newConversationId}");
+      setConversationChannel(previousConversationId, null);
+      onconversationunloaded(previousConversationId);
+      //_conversationId = conversationId;
+      setConversation(conversation);
+      setConversationChannel(newConversationId, null);
+      onconversationloaded(newConversationId);
+      return false;
+    }
+  }  
+}
+*/
+
 abstract class _PaperCupsMixin {
   StreamController<PapercupsMessage> _stateMessageController =
       StreamController<PapercupsMessage>();
@@ -479,13 +530,11 @@ abstract class _PaperCupsMixin {
           socketOptions: options);
 
       _socket.closeStream.listen((event) {
-        ondisconnected();
         _stateStreamController.add(PaperCupsDisconnectedEvent());
       });
 
       _socket.openStream.listen(
         (event) {
-          onconnected();
           _stateStreamController.add(PaperCupsConnectedEvent());
         },
       );
@@ -502,16 +551,28 @@ abstract class _PaperCupsMixin {
     }
   }
 
-  bool get mounted;
-  void onconnected();
-  void ondisconnected();
-  void onconversationloaded(String conversationId);
-  void onconversationunloaded(String conversationId);
+  //void onconnected();
+  //void ondisconnected();
+  //void onconversationloaded(String conversationId);
+  //void onconversationunloaded(String conversationId);
 
   void setCustomer(PapercupsCustomer c, {rebuild = false});
   void setConversation(Conversation c);
-  void setConversationChannel(String convid, PhoenixChannel c);
   void rebuild(void Function() fn, {bool stateMsg = false, animate = false});
+
+  void setConversationChannel(String convId, PhoenixChannel c) {
+    if (c == null) {
+      if (_conversationChannel.containsKey(convId)) {
+        PhoenixChannel previous = _conversationChannel[convId];
+        if (previous.state != PhoenixChannelState.closed) {
+          previous.close();
+        }
+        _conversationChannel.remove(convId);
+      }
+    } else {
+      _conversationChannel[convId] = c;
+    }
+  }
 
   void disposeA() {
     if (_channel != null) _channel.close();
@@ -577,7 +638,10 @@ abstract class _PaperCupsMixin {
     if (_conversations.containsKey(newConversationId)) {
       //_messages.addAll(_conversations[conversationId].messages);
       setConversationChannel(previousConversationId, null);
-      onconversationunloaded(previousConversationId);
+      _stateStreamController.add(PaperCupsConversationUnloadEvent(
+          conversationId: previousConversationId));
+
+      //onconversationunloaded(previousConversationId);
       //_conversationId = conversationId;
       if (newConversationId == null) {
         print("reset messages: ${newConversationId}");
@@ -589,16 +653,22 @@ abstract class _PaperCupsMixin {
         join(_conversations[newConversationId]);
       }
 
-      onconversationloaded(newConversationId);
+      _stateStreamController.add(
+          PaperCupsConversationLoadEvent(conversationId: newConversationId));
+      //onconversationloaded(newConversationId);
       return true;
     } else {
       print("reset messages: ${newConversationId}");
       setConversationChannel(previousConversationId, null);
-      onconversationunloaded(previousConversationId);
+      _stateStreamController.add(PaperCupsConversationUnloadEvent(
+          conversationId: previousConversationId));
+      //onconversationunloaded(previousConversationId);
       //_conversationId = conversationId;
       setConversation(conversation);
       setConversationChannel(newConversationId, null);
-      onconversationloaded(newConversationId);
+      //onconversationloaded(newConversationId);
+      _stateStreamController.add(
+          PaperCupsConversationLoadEvent(conversationId: newConversationId));
       return false;
     }
   }
@@ -689,7 +759,8 @@ abstract class _PaperCupsMixin {
         getCustomerHistoryEx(c: _customer, p: props, setCustomer: setCustomer)
             .then((Inbox inbox) {
           if (inbox.failed) {
-            ondisconnected();
+            //ondisconnected();
+            _stateStreamController.add(PaperCupsDisconnectedEvent());
             _completer.complete(inbox.failed);
           } else {
             _conversations.clear();
@@ -885,6 +956,28 @@ class _PaperCupsWidgetState2 extends State<PaperCupsWidgetB>
       }
     });
 
+    _stateStreamController.stream
+        .where((event) => event is PaperCupsConnectionEvent)
+        .cast<PaperCupsConnectionEvent>()
+        .listen((event) {
+      if (event is PaperCupsConversationLoadEvent) {
+        onconnected();
+      } else if (event is PaperCupsConversationUnloadEvent) {
+        ondisconnected();
+      }
+    });
+
+    _stateStreamController.stream
+        .where((event) => event is PaperCupsConversationEvent)
+        .cast<PaperCupsConversationEvent>()
+        .listen((event) {
+      if (event is PaperCupsConversationLoadEvent) {
+        onconversationloaded(event.conversationId);
+      } else if (event is PaperCupsConversationUnloadEvent) {
+        onconversationunloaded(event.conversationId);
+      }
+    });
+
     _stateStreamController.stream.handleError((error) {
       String _desc = error.toString();
       Alert.show(
@@ -907,7 +1000,7 @@ class _PaperCupsWidgetState2 extends State<PaperCupsWidgetB>
     super.dispose();
   }
 
-  @override
+  //@override
   void onconnected() {
     //var completer = Completer<bool>();
     _channel = initChannelsEx(_socket, widget.props, null);
@@ -929,18 +1022,18 @@ class _PaperCupsWidgetState2 extends State<PaperCupsWidgetB>
     if (mounted) setState(() {});
   }
 
-  @override
+  //@override
   void ondisconnected() {
     noConnection = true;
     if (mounted) setState(() {});
   }
 
-  @override
+  //@override
   void onconversationloaded(String conversationId) {
     if (mounted) setState(() {});
   }
 
-  @override
+  //@override
   void onconversationunloaded(String conversationId) {
     if (mounted) setState(() {});
   }
@@ -980,21 +1073,6 @@ class _PaperCupsWidgetState2 extends State<PaperCupsWidgetB>
     print("setConversation.... ${c.id} ${c.messages.length}");
     _conversation = c;
     if (mounted) setState(() {});
-  }
-
-  @override
-  void setConversationChannel(String convId, PhoenixChannel c) {
-    if (c == null) {
-      if (_conversationChannel.containsKey(convId)) {
-        PhoenixChannel previous = _conversationChannel[convId];
-        if (previous.state != PhoenixChannelState.closed) {
-          previous.close();
-        }
-        _conversationChannel.remove(convId);
-      }
-    } else {
-      _conversationChannel[convId] = c;
-    }
   }
 
   @override

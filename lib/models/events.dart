@@ -2,9 +2,11 @@ import 'package:phoenix_socket/phoenix_socket.dart';
 
 class PaperCupsEvent {}
 
-class PaperCupsConnectedEvent extends PaperCupsEvent {}
+class PaperCupsConnectionEvent extends PaperCupsEvent {}
 
-class PaperCupsDisconnectedEvent extends PaperCupsEvent {}
+class PaperCupsConnectedEvent extends PaperCupsConnectionEvent {}
+
+class PaperCupsDisconnectedEvent extends PaperCupsConnectionEvent {}
 
 class PaperCupsSessionIdentifiedEvent extends PaperCupsEvent {}
 
@@ -12,18 +14,34 @@ class PaperCupsConversationStartedEvent extends PaperCupsEvent {}
 
 class PaperCupsConversationClosedEvent extends PaperCupsEvent {}
 
-class PaperCupsConversationLoadEvent extends PaperCupsEvent {}
-
 class PaperCupsConversationMessageReceivedEvent extends PaperCupsEvent {}
 
 class PaperCupsConversationMessageSendEvent extends PaperCupsEvent {}
-
-class PaperCupsConversationFinishedEvent extends PaperCupsEvent {}
 
 class PaperCupsConversationEvent extends PaperCupsEvent {
   final String conversationId;
   final PhoenixChannel channel;
   PaperCupsConversationEvent({
+    this.channel,
+    this.conversationId,
+  });
+}
+
+class PaperCupsConversationFinishedEvent extends PaperCupsEvent {}
+
+class PaperCupsConversationUnloadEvent extends PaperCupsConversationEvent {
+  final String conversationId;
+  final PhoenixChannel channel;
+  PaperCupsConversationUnloadEvent({
+    this.channel,
+    this.conversationId,
+  });
+}
+
+class PaperCupsConversationLoadEvent extends PaperCupsConversationEvent {
+  final String conversationId;
+  final PhoenixChannel channel;
+  PaperCupsConversationLoadEvent({
     this.channel,
     this.conversationId,
   });
