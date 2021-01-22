@@ -533,27 +533,44 @@ class PaperCupsController {
 
   Future<PhoenixSocket> connect(Props props,
       {bool retry, PhoenixSocketOptions options}) {
+    print("connecting...");
     if (_socket == null) {
-      _socket = PhoenixSocket("wss://" + props.baseUrl + '/socket/websocket',
-          socketOptions: options);
+      try {
+        _socket = PhoenixSocket("wss://" + props.baseUrl + '/socket/websocket',
+            socketOptions: options);
+      } catch (e) {
+        print("connecting had an exception... ${e}");
+        _socket = null;
+        return Future<PhoenixSocket>.value(null);
+      }
 
       _socket.closeStream.listen((event) {
+        print("stream closed....");
         _stateStreamController.add(PaperCupsDisconnectedEvent());
       });
 
       _socket.openStream.listen(
         (event) {
           //var completer = Completer<bool>();
+          print("stream opened....");
           _channel = initChannelsEx(_socket, props, null);
           _stateStreamController.add(PaperCupsConnectedEvent());
         },
       );
 
       _socket.errorStream.listen((event) {
+        print("stream errored....");
         _stateStreamController.addError(event);
       });
 
+      /*
+      .catchError((error) {
+        _stateStreamController.addError(error);
+      });
+      */
+      print("connecting....");
       _socket.connect();
+      print("connecting done....");
 
       return Future<PhoenixSocket>.value(_socket);
     } else {
@@ -928,7 +945,7 @@ class PaperCupsController {
 }
 
 abstract class _PaperCupsMixin {
-  PaperCupsController messagingController;
+  PaperCupsController messagingController = PaperCupsController();
   void rebuild(void Function() fn, {bool stateMsg = false, animate = false});
   void setCustomer(PapercupsCustomer c, {rebuild = false});
   void setConversation(Conversation c);
@@ -983,9 +1000,9 @@ class _PaperCupsWidgetState2 extends State<PaperCupsWidgetB>
         .where((event) => event is PaperCupsConnectionEvent)
         .cast<PaperCupsConnectionEvent>()
         .listen((event) {
-      if (event is PaperCupsConversationLoadEvent) {
+      if (event is PaperCupsConnectedEvent) {
         onconnected();
-      } else if (event is PaperCupsConversationUnloadEvent) {
+      } else if (event is PaperCupsDisconnectedEvent) {
         ondisconnected();
       }
     });
