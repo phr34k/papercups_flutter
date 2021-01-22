@@ -3,11 +3,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import '../models/models.dart';
-import '../utils/utils.dart';
 import '../models/conversation.dart';
 import '../models/customer.dart';
-import '../utils/getConversationDetails.dart';
-import '../utils/getCustomerDetails.dart';
 import 'package:phoenix_socket/phoenix_socket.dart';
 
 import '../models/classes.dart';
@@ -179,47 +176,5 @@ void _sendMessage(
   if (controller != null) {
     controller.add(msg);
     return;
-  }
-
-  setState(() {
-    messages.add(msg);
-  }, stateMsg: true);
-
-  if (conversationChannel == null) {
-    getCustomerDetails(p, cu, setCust).then(
-      (customerDetails) {
-        setCust(customerDetails);
-        getConversationDetails(p, conv, customerDetails, setConv).then(
-          (conversationDetails) {
-            var conv = joinConversationAndListen(
-              messages: messages,
-              convId: conversationDetails.id,
-              conversation: conversationChannel,
-              socket: socket,
-              setState: setState,
-              setChannel: setConvChannel,
-            );
-            conv.push(
-              "shout",
-              {
-                "body": text,
-                "customer_id": customerDetails.id,
-                "sent_at": timeNow.toIso8601String(),
-              },
-            );
-            setState(() {});
-          },
-        );
-      },
-    );
-  } else {
-    conversationChannel.push(
-      "shout",
-      {
-        "body": text,
-        "customer_id": cu.id,
-        "sent_at": timeNow.toIso8601String(),
-      },
-    );
   }
 }
