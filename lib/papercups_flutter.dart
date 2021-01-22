@@ -436,8 +436,6 @@ abstract class _PaperCupsMixin {
   Map<String, Conversation> _conversations = {};
   // internal the current identified customer
   PapercupsCustomer _customer;
-  // internal the current active conversation
-  Conversation _conversation;
 
   //bool _connected = false;
   //List<PapercupsMessage> _messages = [];
@@ -569,9 +567,10 @@ abstract class _PaperCupsMixin {
     }
   }
 
-  Future<bool> selectChannel(Conversation conversation) async {
+  Future<bool> selectChannel(
+      Conversation prevConversation, Conversation conversation) async {
     String previousConversationId =
-        _conversation != null ? _conversation.id : null;
+        prevConversation != null ? prevConversation.id : null;
     String newConversationId = conversation != null ? conversation.id : null;
     print("selecting conversation id: ${newConversationId}");
     //_messages.clear();
@@ -626,20 +625,22 @@ abstract class _PaperCupsMixin {
   }
 
   Future<ConversationPair> getConversation(Props props,
-      {bool joins, Future<PapercupsCustomer> customer}) async {
-    if (_conversation != null && _conversation.id != null) {
+      {bool joins,
+      Conversation conversation,
+      Future<PapercupsCustomer> customer}) async {
+    if (conversation != null && conversation.id != null) {
       PapercupsCustomer identifiedCustomer = await customer;
-      PhoenixChannel channel = _conversationChannel[_conversation.id];
+      PhoenixChannel channel = _conversationChannel[conversation.id];
       if (channel != null) {
         return Future<ConversationPair>.value(ConversationPair(
-            conversation: _conversation,
+            conversation: conversation,
             channel: channel,
             customer: identifiedCustomer));
       } else {
         var completer = Completer<ConversationPair>();
-        join(_conversation).then((conv) {
+        join(conversation).then((conv) {
           completer.complete(ConversationPair(
-              conversation: _conversation,
+              conversation: conversation,
               channel: conv,
               customer: identifiedCustomer));
         }).catchError((error) {
@@ -653,7 +654,7 @@ abstract class _PaperCupsMixin {
       var completer = Completer<ConversationPair>();
       customer.then((identifiedCustomer) {
         var customerId = identifiedCustomer.id;
-        createConversation(props, _conversation, _customer, setConversation)
+        createConversation(props, conversation, _customer, setConversation)
             .then((conversationDetails) {
           // Check if the conversation fullfills the basic requirements
           assert(conversationDetails.customerId == customerId &&
@@ -701,14 +702,15 @@ abstract class _PaperCupsMixin {
               selectedChannel = inbox.conversationId;
             else
               selectedChannel = conversation.id;
-            selectChannel(Conversation(id: selectedChannel)).then((value) {
+            selectChannel(conversation, Conversation(id: selectedChannel))
+                .then((value) {
               _completer.complete(inbox.failed);
             });
           }
         });
       } else {
         print("Setting channel to ${conversation}");
-        selectChannel(conversation).then((value) {
+        selectChannel(conversation, conversation).then((value) {
           _completer.complete(false);
         });
       }
@@ -779,10 +781,10 @@ abstract class _PaperCupsMixin {
     return textBlack;
   }
 
-  void _shoutMessage(
-      Props props, PapercupsMessage msg, Future<ConversationPair> channel) {
+  void _shoutMessage(Props props, Conversation conv, PapercupsMessage msg,
+      Future<ConversationPair> channel) {
     rebuild(() {
-      _conversation.messages.add(msg);
+      conv.messages.add(msg);
     });
 
     channel.then((value) {
@@ -828,35 +830,31 @@ abstract class _PaperCupsMixin {
     if (conversationChannel == null) {
       _shoutMessage(
           p,
+          conv,
           msg,
           // create or get the conversation
           getConversation(p,
               joins: true,
+              conversation: conv,
               // identify the customer
               customer: identify(p, create: true)));
     } else {
       _shoutMessage(
           p,
+          conv,
           msg,
           // we already have a cusomer, channel, conversation
           Future<ConversationPair>.value(ConversationPair(
-              channel: _channel,
-              customer: _customer,
-              conversation: _conversation)));
+              channel: _channel, customer: _customer, conversation: conv)));
     }
-  }
-
-  void _sendMessageEx(
-    Props p,
-    PapercupsMessage msg,
-  ) {
-    _sendMessage(p, _conversation, msg);
   }
 }
 
 class _PaperCupsWidgetState2 extends State<PaperCupsWidgetB>
     with _PaperCupsMixin {
   ScrollController _controller = ScrollController();
+  // internal the current active conversation
+  Conversation _conversation;
   bool textBlack = false;
   bool _sending = false;
   bool noConnection = true;
@@ -1003,11 +1001,13 @@ class _PaperCupsWidgetState2 extends State<PaperCupsWidgetB>
   void rebuild(void Function() fn, {bool stateMsg = false, animate = false}) {
     _sending = stateMsg;
     if (mounted) setState(fn);
+    Conversation conversation = _conversation;
+
     if (animate &&
         mounted &&
-        _conversation != null &&
-        _conversation.messages != null &&
-        _conversation.messages.isNotEmpty &&
+        conversation != null &&
+        conversation.messages != null &&
+        conversation.messages.isNotEmpty &&
         WidgetsBinding.instance != null &&
         _controller.hasClients) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1019,6 +1019,13 @@ class _PaperCupsWidgetState2 extends State<PaperCupsWidgetB>
           );
       });
     }
+  }
+
+  void _sendMessageEx(
+    Props p,
+    PapercupsMessage msg,
+  ) {
+    _sendMessage(p, _conversation, msg);
   }
 
   Widget conversationInbox(BuildContext context) {
