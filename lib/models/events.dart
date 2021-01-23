@@ -1,3 +1,4 @@
+import 'package:papercups_flutter/models/customer.dart';
 import 'package:phoenix_socket/phoenix_socket.dart';
 
 class PaperCupsEvent {}
@@ -7,6 +8,12 @@ class PaperCupsConnectionEvent extends PaperCupsEvent {}
 class PaperCupsConnectedEvent extends PaperCupsConnectionEvent {}
 
 class PaperCupsDisconnectedEvent extends PaperCupsConnectionEvent {}
+
+class PaperCupsCustomerIdentifiedEvent extends PaperCupsEvent {
+  PapercupsCustomer customer;
+  bool rebuild;
+  PaperCupsCustomerIdentifiedEvent(this.customer, this.rebuild);
+}
 
 class PaperCupsSessionIdentifiedEvent extends PaperCupsEvent {}
 

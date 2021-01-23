@@ -140,7 +140,6 @@ class PaperCupsController {
   PapercupsCustomer _customer;
   // internal rebuild function
   RebuildFunction rebuild;
-  SetCustomerFunction setCustomer;
   SetConversationFunction setConversation;
 
   //bool _connected = false;
@@ -296,6 +295,12 @@ class PaperCupsController {
       List<PapercupsMessage> messages = [messageFromString(props)];
       fetch(props, Conversation(messages: messages), noDefaultLoad: true);
     }
+  }
+
+  void setCustomer(PapercupsCustomer c, {rebuild = false}) {
+    print("setCustomer.... ${c.id} ${c.externalId}");
+    _customer = c;
+    _stateStreamController.add(PaperCupsCustomerIdentifiedEvent(c, rebuild));
   }
 
   Future<bool> selectChannel(
@@ -591,15 +596,37 @@ class PaperCupsController {
   }
 }
 
+class PaperCupsViewController {
+  // internal controller associated for this view
+  final PaperCupsController _controller;
+  // intnernal conversation object associated with this view
+  Conversation _conversation;
+  Conversation get conversation {
+    return _conversation;
+  }
+
+  PaperCupsController get controller {
+    return _controller;
+  }
+
+  void navigate(Conversation conversation) {
+    _conversation = conversation;
+  }
+
+  PaperCupsViewController(this._controller);
+}
+
 abstract class _PaperCupsMixin {
-  PaperCupsController messagingController = PaperCupsController();
+  PaperCupsController messagingController;
+  PaperCupsViewController viewController;
   void rebuild(void Function() fn, {bool stateMsg = false, animate = false});
   void setCustomer(PapercupsCustomer c, {rebuild = false});
   void setConversation(Conversation c);
   void initStateA(Props props) {
+    messagingController = PaperCupsController();
     messagingController.rebuild = rebuild;
-    messagingController.setCustomer = setCustomer;
     messagingController.setConversation = setConversation;
+    viewController = PaperCupsViewController(messagingController);
     messagingController.initStateA(props);
   }
 
@@ -612,7 +639,7 @@ class _PaperCupsWidgetState2 extends State<PaperCupsWidgetB>
     with _PaperCupsMixin {
   ScrollController _controller = ScrollController();
   // internal the current active conversation
-  Conversation _conversation;
+
   bool textBlack = false;
   bool _sending = false;
   bool noConnection = true;
@@ -665,6 +692,13 @@ class _PaperCupsWidgetState2 extends State<PaperCupsWidgetB>
       }
     });
 
+    messagingController._stateStreamController.stream
+        .where((event) => event is PaperCupsCustomerIdentifiedEvent)
+        .cast<PaperCupsCustomerIdentifiedEvent>()
+        .listen((event) {
+      setCustomer(event.customer, rebuild: event.rebuild);
+    });
+
     messagingController._stateStreamController.stream.handleError((error) {
       String _desc = error.toString();
       Alert.show(
@@ -694,7 +728,9 @@ class _PaperCupsWidgetState2 extends State<PaperCupsWidgetB>
       rebuild(() {}, animate: true);
     }
 
-    messagingController.fetch(widget.props, _conversation).then((failed) {
+    messagingController
+        .fetch(widget.props, viewController.conversation)
+        .then((failed) {
       if (failed) {
         messagingController._stateStreamController.addError(
             "There was an issue retrieving your details. Please try again!");
@@ -745,17 +781,15 @@ class _PaperCupsWidgetState2 extends State<PaperCupsWidgetB>
     messagingController.goto(widget.props, null);
   }
 
-  @override
   void setCustomer(PapercupsCustomer c, {rebuild = false}) {
     print("setCustomer.... ${c.id} ${c.externalId}");
-    messagingController._customer = c;
     if (rebuild && mounted) setState(() {});
   }
 
   @override
   void setConversation(Conversation c) {
     print("setConversation.... ${c.id} ${c.messages.length}");
-    _conversation = c;
+    viewController.navigate(c);
     if (mounted) setState(() {});
   }
 
@@ -763,7 +797,7 @@ class _PaperCupsWidgetState2 extends State<PaperCupsWidgetB>
   void rebuild(void Function() fn, {bool stateMsg = false, animate = false}) {
     _sending = stateMsg;
     if (mounted) setState(fn);
-    Conversation conversation = _conversation;
+    Conversation conversation = viewController.conversation;
 
     if (animate &&
         mounted &&
@@ -787,7 +821,7 @@ class _PaperCupsWidgetState2 extends State<PaperCupsWidgetB>
     Props p,
     PapercupsMessage msg,
   ) {
-    messagingController._sendMessage(p, _conversation, msg);
+    messagingController._sendMessage(p, viewController.conversation, msg);
   }
 
   Widget conversationInbox(BuildContext context) {
@@ -893,7 +927,9 @@ class _PaperCupsWidgetState2 extends State<PaperCupsWidgetB>
                 Expanded(
                   child: ChatMessages(
                     widget.props,
-                    _conversation != null ? _conversation.messages : [],
+                    viewController.conversation != null
+                        ? viewController.conversation.messages
+                        : [],
                     _controller,
                     _sending,
                     widget.dateLocale,
