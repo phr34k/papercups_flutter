@@ -64,7 +64,12 @@ class ConversationPair {
 }
 
 class Update {
-  Future<Conversation> future;
+  Conversation oldConversation;
+  Conversation newConversation;
+  Update(
+    this.oldConversation,
+    this.newConversation,
+  );
 }
 
 typedef void RebuildFunction(void Function() fn, {bool stateMsg, bool animate});
@@ -241,13 +246,17 @@ class PaperCupsController {
 
   void goto(Props props, String conversationId, PaperCupsViewController view) {
     if (_conversations.containsKey(conversationId)) {
-      fetch(props, _conversations[conversationId],
-          noDefaultLoad: true, view: view);
+      fetch(props, _conversations[conversationId], noDefaultLoad: true)
+          .then((update) {
+        view._selectChannel(update.oldConversation, update.newConversation);
+      });
     } else {
       //Create a new messages list so the DateTime is properly set.
       List<PapercupsMessage> messages = [messageFromString(props)];
-      fetch(props, Conversation(messages: messages),
-          noDefaultLoad: true, view: view);
+      fetch(props, Conversation(messages: messages), noDefaultLoad: true)
+          .then((update) {
+        view._selectChannel(update.oldConversation, update.newConversation);
+      });
     }
   }
 
@@ -384,9 +393,9 @@ class PaperCupsController {
     }
   }
 
-  Future<bool> fetch(Props props, Conversation conversation,
-      {bool noDefaultLoad = false, PaperCupsViewController view}) {
-    Completer<bool> _completer = Completer<bool>();
+  Future<Update> fetch(Props props, Conversation conversation,
+      {bool noDefaultLoad = false}) {
+    Completer<Update> _completer = Completer<Update>();
     print("fetch to ${conversation}");
     identify(props).then((customer) {
       if (conversation == null || conversation.id != null) {
@@ -396,7 +405,8 @@ class PaperCupsController {
           if (inbox.failed) {
             //ondisconnected();
             _stateStreamController.add(PaperCupsDisconnectedEvent());
-            _completer.complete(inbox.failed);
+            _completer
+                .completeError("An error occured while getting the inbox");
           } else {
             _conversations.clear();
             _conversations.addAll(inbox.conversations);
@@ -408,18 +418,13 @@ class PaperCupsController {
               selectedChannel = inbox.conversationId;
             else
               selectedChannel = conversation.id;
-            view
-                ._selectChannel(conversation, Conversation(id: selectedChannel))
-                .then((value) {
-              _completer.complete(inbox.failed);
-            });
+            _completer.complete(
+                Update(conversation, Conversation(id: selectedChannel)));
           }
         });
       } else {
         print("Setting channel to ${conversation}");
-        view._selectChannel(conversation, conversation).then((value) {
-          _completer.complete(false);
-        });
+        _completer.complete(Update(conversation, conversation));
       }
 
       /*
@@ -748,15 +753,14 @@ class _PaperCupsWidgetState2 extends State<PaperCupsWidgetB>
       rebuild(() {}, animate: true);
     }
 
-    messagingController
-        .fetch(widget.props, viewController.conversation, view: viewController)
-        .then((failed) {
-      if (failed) {
-        messagingController._stateStreamController.addError(
-            "There was an issue retrieving your details. Please try again!");
-      } else {
-        if (mounted) setState(() {});
-      }
+    messagingController.fetch(widget.props, viewController.conversation).then(
+        (update) {
+      viewController._selectChannel(
+          update.oldConversation, update.newConversation);
+      if (mounted) setState(() {});
+    }, onError: () {
+      messagingController._stateStreamController.addError(
+          "There was an issue retrieving your details. Please try again!");
     });
 
     if (mounted) setState(() {});
