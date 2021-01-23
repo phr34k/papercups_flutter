@@ -804,13 +804,19 @@ class _PaperCupsWidgetState2 extends State<PaperCupsWidgetB>
             Conversation conversation = messagingController.conversations[
                 messagingController.conversations.keys.elementAt(index)];
 
-            String conversationId = conversation.id;
-            String body = conversation.messages != null
-                ? conversation.messages.isNotEmpty
-                    ? conversation.messages[0].body
+            String conversationId = conversation != null ? conversation.id : "";
+            String body = conversation != null
+                ? conversation.messages != null
+                    ? conversation.messages.isNotEmpty
+                        ? conversation.messages[0].body
+                        : ""
                     : ""
                 : "";
-            String sentAt = conversation.createdAt;
+            String sentAt = conversation != null
+                ? conversation.createdAt != null
+                    ? conversation.createdAt
+                    : ""
+                : "";
             return InkWell(
                 child: Text('${body} ${sentAt}'),
                 onTap: () {
