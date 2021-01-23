@@ -96,7 +96,7 @@ class PaperCupsController {
   // internal the current identified customer
   PapercupsCustomer _customer;
   // internal rebuild function
-  RebuildFunction rebuild;
+  //RebuildFunction rebuild;
   //SetConversationFunction setConversation;
 
   //bool _connected = false;
@@ -218,9 +218,10 @@ class PaperCupsController {
     var statusEvents = StreamController<PaperCupsConversationEvent>();
     var controller = StreamController<List<PapercupsMessage>>();
     controller.stream.listen((messages) {
-      rebuild(() {
-        conversation.messages.addAll(messages);
-      }, animate: true);
+      conversation.messages.addAll(messages);
+      _stateStreamController.add(PaperCupsConversationMessageReceivedEvent(
+        messages: messages,
+      ));
     });
 
     statusEvents.stream.listen((event) {
@@ -399,9 +400,9 @@ class PaperCupsController {
 
   void _shoutMessage(Props props, Conversation conv, PapercupsMessage msg,
       Future<ConversationPair> channel) {
-    rebuild(() {
-      conv.messages.add(msg);
-    });
+    _stateStreamController.add(PaperCupsConversationMessageSendEvent(
+      messages: [msg],
+    ));
 
     channel.then((value) {
       msg.customer = value.customer;
@@ -557,7 +558,6 @@ abstract class _PaperCupsMixin {
   void rebuild(void Function() fn, {bool stateMsg = false, animate = false});
   void initStateA(Props props) {
     messagingController = PaperCupsController();
-    messagingController.rebuild = rebuild;
     viewController = PaperCupsViewController(messagingController);
     messagingController.initStateA(props);
   }
@@ -606,7 +606,7 @@ class _PaperCupsWidgetState2 extends State<PaperCupsWidgetB>
     });
 
     messagingController._sendingStatusChanged.listen((event) {
-      if (event is PaperCupsConversationMessageSendEvent) {
+      if (event is PaperCupsConversationMessageSending) {
         setState(() {
           _sending = true;
         });
@@ -632,7 +632,11 @@ class _PaperCupsWidgetState2 extends State<PaperCupsWidgetB>
         .where((event) => event is PaperCupsConversationEvent)
         .cast<PaperCupsConversationEvent>()
         .listen((event) {
-      if (event is PaperCupsConversationLoadEvent) {
+      if (event is PaperCupsConversationMessageSendEvent) {
+        rebuild(() {}, animate: true);
+      } else if (event is PaperCupsConversationMessageReceivedEvent) {
+        rebuild(() {});
+      } else if (event is PaperCupsConversationLoadEvent) {
         onconversationloaded(event.conversationId);
       } else if (event is PaperCupsConversationUnloadEvent) {
         onconversationunloaded(event.conversationId);

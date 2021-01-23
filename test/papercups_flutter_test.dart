@@ -191,13 +191,9 @@ void main() {
         ),
       ).thenAnswer((_) async => http.Response(res, 200));
 
-      final details = await getConversationDetails(
-        props,
-        Conversation(),
-        customer,
-        sc,
-        client: client,
-      );
+      final details = await createConversation(
+          props, Conversation(), customer, sc,
+          client: client);
 
       verify(
         client.post(
@@ -223,7 +219,7 @@ void main() {
         ),
       ).thenThrow(HttpException('Request failed'));
 
-      final details = await getConversationDetails(
+      final details = await createConversation(
         props,
         Conversation(),
         customer,

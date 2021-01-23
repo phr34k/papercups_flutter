@@ -1,5 +1,6 @@
 import 'package:papercups_flutter/models/customer.dart';
 import 'package:papercups_flutter/models/conversation.dart';
+import 'package:papercups_flutter/models/message.dart';
 import 'package:phoenix_socket/phoenix_socket.dart';
 
 class PaperCupsEvent {}
@@ -27,10 +28,6 @@ class PaperCupsSessionIdentifiedEvent extends PaperCupsEvent {}
 class PaperCupsConversationStartedEvent extends PaperCupsEvent {}
 
 class PaperCupsConversationClosedEvent extends PaperCupsEvent {}
-
-class PaperCupsConversationMessageReceivedEvent extends PaperCupsEvent {}
-
-class PaperCupsConversationMessageSendEvent extends PaperCupsEvent {}
 
 class PaperCupsConversationEvent extends PaperCupsEvent {
   final String conversationId;
@@ -81,6 +78,25 @@ class PaperCupsConversationMessageStatusEvent
   PaperCupsConversationMessageStatusEvent({
     PhoenixChannel channel,
     String conversationId,
+  }) : super(channel: channel, conversationId: conversationId);
+}
+
+class PaperCupsConversationMessageSendEvent extends PaperCupsConversationEvent {
+  List<PapercupsMessage> messages;
+  PaperCupsConversationMessageSendEvent({
+    PhoenixChannel channel,
+    String conversationId,
+    this.messages,
+  }) : super(channel: channel, conversationId: conversationId);
+}
+
+class PaperCupsConversationMessageReceivedEvent
+    extends PaperCupsConversationEvent {
+  List<PapercupsMessage> messages;
+  PaperCupsConversationMessageReceivedEvent({
+    PhoenixChannel channel,
+    String conversationId,
+    this.messages,
   }) : super(channel: channel, conversationId: conversationId);
 }
 

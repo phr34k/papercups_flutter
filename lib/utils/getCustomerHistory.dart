@@ -83,7 +83,8 @@ Future<Inbox> getCustomerHistoryEx({
 
       if (data["cust"] != null && data["cust"] != customer) {
         // Determine if we need to update the customer details.
-        var nCust = await updateUserMetadata(p, data["cust"].id);
+        var nCust =
+            await updateUserMetadataEx(p, PapercupsCustomer(), data["cust"].id);
         if (nCust == null) {
           // Will only return null if the update failed.
           failed = true;
