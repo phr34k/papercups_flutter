@@ -526,11 +526,7 @@ class PaperCupsViewController {
     }
   }
 
-  Future<bool> navigate(Conversation conversation) {
-    return _selectChannel(_conversation, Conversation(id: conversation.id));
-  }
-
-  void goto(Props props, String conversationId) {
+  void navigate(Props props, String conversationId) {
     if (_controller._conversations.containsKey(conversationId)) {
       _controller
           .fetch(props, _controller._conversations[conversationId],
@@ -581,6 +577,12 @@ abstract class _PaperCupsThemeMixin {
   }
 }
 
+enum ConnectionState {
+  none,
+  connected,
+  disconnected,
+}
+
 class _PaperCupsWidgetState2 extends State<PaperCupsWidgetB>
     with _PaperCupsMixin, _PaperCupsThemeMixin {
   ScrollController _controller = ScrollController();
@@ -588,7 +590,7 @@ class _PaperCupsWidgetState2 extends State<PaperCupsWidgetB>
 
   bool textBlack = false;
   bool _sending = false;
-  bool noConnection = true;
+  ConnectionState _connectionState = ConnectionState.none;
 
   @override
   void initState() {
@@ -681,11 +683,8 @@ class _PaperCupsWidgetState2 extends State<PaperCupsWidgetB>
 
   //@override
   void onconnected() {
-    if (noConnection) {
-      noConnection = false;
-      rebuild(() {}, animate: true);
-    }
-
+    bool wasDisconnected = _connectionState == ConnectionState.disconnected;
+    _connectionState = ConnectionState.connected;
     messagingController.fetch(widget.props, viewController.conversation).then(
         (update) {
       viewController._selectChannel(
@@ -696,12 +695,12 @@ class _PaperCupsWidgetState2 extends State<PaperCupsWidgetB>
           "There was an issue retrieving your details. Please try again!");
     });
 
-    if (mounted) setState(() {});
+    rebuild(() {}, animate: wasDisconnected);
   }
 
   //@override
   void ondisconnected() {
-    noConnection = true;
+    _connectionState = ConnectionState.disconnected;
     if (mounted) setState(() {});
   }
 
@@ -730,12 +729,12 @@ class _PaperCupsWidgetState2 extends State<PaperCupsWidgetB>
             builder: (context) => PaperCupsWidgetB(props: widget.props)),
       );
     } else {
-      viewController.goto(widget.props, conversationId);
+      viewController.navigate(widget.props, conversationId);
     }
   }
 
   void newchat() {
-    viewController.goto(widget.props, null);
+    viewController.navigate(widget.props, null);
   }
 
   void setCustomer(PapercupsCustomer c, {rebuild = false}) {
@@ -745,7 +744,6 @@ class _PaperCupsWidgetState2 extends State<PaperCupsWidgetB>
 
   void setConversation(Conversation c) {
     print("setConversation.... ${c.id} ${c.messages.length}");
-    //viewController.navigate(c);
     if (mounted) setState(() {});
   }
 
@@ -805,7 +803,7 @@ class _PaperCupsWidgetState2 extends State<PaperCupsWidgetB>
       widget.props.primaryColor = Theme.of(context).primaryColor;
     return Container(
       color: Theme.of(context).canvasColor,
-      child: noConnection
+      child: _connectionState == ConnectionState.disconnected
           ? Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
