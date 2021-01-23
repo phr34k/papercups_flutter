@@ -8,6 +8,7 @@ import 'package:phoenix_socket/phoenix_socket.dart';
 import 'models/models.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'dart:async';
+import 'dart:developer' as developer;
 
 // Exports.
 export 'models/classes.dart';
@@ -136,33 +137,37 @@ class PaperCupsController {
 
   Future<PhoenixSocket> connect(Props props,
       {bool retry, PhoenixSocketOptions options}) {
-    print("connecting...");
+    developer.log("connecting...", level: 0, name: 'papercups.controller');
     if (_socket == null) {
       try {
         _socket = PhoenixSocket("wss://" + props.baseUrl + '/socket/websocket',
             socketOptions: options);
       } catch (e) {
-        print("connecting had an exception... ${e}");
+        developer.log("connecting had an exception... ${e}",
+            level: 0, name: 'papercups.controller');
         _socket = null;
         return Future<PhoenixSocket>.value(null);
       }
 
       _socket.closeStream.listen((event) {
-        print("stream closed....");
+        developer.log("stream closed....",
+            level: 0, name: 'papercups.controller');
         _stateStreamController.add(PaperCupsDisconnectedEvent());
       });
 
       _socket.openStream.listen(
         (event) {
           //var completer = Completer<bool>();
-          print("stream opened....");
+          developer.log("stream opened....",
+              level: 0, name: 'papercups.controller');
           _channel = initChannelsEx(_socket, props, null);
           _stateStreamController.add(PaperCupsConnectedEvent());
         },
       );
 
       _socket.errorStream.listen((event) {
-        print("stream errored....");
+        developer.log("stream errored....",
+            level: 0, name: 'papercups.controller');
         _stateStreamController.addError(event);
       });
 
@@ -171,9 +176,10 @@ class PaperCupsController {
         _stateStreamController.addError(error);
       });
       */
-      print("connecting....");
+      developer.log("connecting....", level: 0, name: 'papercups.controller');
       _socket.connect();
-      print("connecting done....");
+      developer.log("connecting done....",
+          level: 0, name: 'papercups.controller');
 
       return Future<PhoenixSocket>.value(_socket);
     } else {
@@ -246,7 +252,8 @@ class PaperCupsController {
   }
 
   void setCustomer(PapercupsCustomer c, {rebuild = false}) {
-    print("setCustomer.... ${c.id} ${c.externalId}");
+    developer.log("setCustomer.... ${c.id} ${c.externalId}",
+        level: 0, name: 'papercups.controller');
     _customer = c;
     _stateStreamController.add(PaperCupsCustomerIdentifiedEvent(c, rebuild));
   }
@@ -256,18 +263,22 @@ class PaperCupsController {
     if (props.customer != null &&
         props.customer.externalId != null &&
         (_customer == null || _customer.createdAt == null)) {
-      print("identity getCustomerDetailsFromMetadata");
+      developer.log("identity getCustomerDetailsFromMetadata",
+          level: 0, name: 'papercups.controller');
       return getCustomerDetailsFromMetadata(props, _customer, setCustomer);
     } else if (_customer == null) {
       if (create == true) {
-        print("identity getCustomerDetails");
+        developer.log("identity getCustomerDetails",
+            level: 0, name: 'papercups.controller');
         return getCustomerDetails(props, _customer, setCustomer);
       } else {
-        print("identity no customer, and wasn't created");
+        developer.log("identity no customer, and wasn't created",
+            level: 0, name: 'papercups.controller');
         return Future<PapercupsCustomer>.value(_customer);
       }
     } else {
-      print("identity existing customer");
+      developer.log("identity existing customer",
+          level: 0, name: 'papercups.controller');
       return Future<PapercupsCustomer>.value(_customer);
     }
   }
@@ -334,10 +345,12 @@ class PaperCupsController {
   Future<Update> fetch(Props props, Conversation conversation,
       {bool noDefaultLoad = false}) {
     Completer<Update> _completer = Completer<Update>();
-    print("fetch to ${conversation}");
+    developer.log("fetch to ${conversation}",
+        level: 0, name: 'papercups.controller');
     identify(props).then((customer) {
       if (conversation == null || conversation.id != null) {
-        print("Updating customer history");
+        developer.log("Updating customer history",
+            level: 0, name: 'papercups.controller');
         getCustomerHistoryEx(c: _customer, p: props, setCustomer: setCustomer)
             .then((Inbox inbox) {
           if (inbox.failed) {
@@ -361,7 +374,8 @@ class PaperCupsController {
           }
         });
       } else {
-        print("Setting channel to ${conversation}");
+        developer.log("Setting channel to ${conversation}",
+            level: 0, name: 'papercups.controller');
         _completer.complete(Update(conversation, conversation));
       }
     }).catchError((error) {
@@ -406,7 +420,10 @@ class PaperCupsController {
 
     channel.then((value) {
       msg.customer = value.customer;
-      print("setCustomer.... ${msg.customer.id} ${msg.customer.externalId}");
+      developer.log(
+          "setCustomer.... ${msg.customer.id} ${msg.customer.externalId}",
+          level: 0,
+          name: 'papercups.controller');
       assert(msg != null && msg.customer != null);
       _stateStreamController.add(PaperCupsConversationMessageSending(
           channel: value.channel, conversationId: msg.conversationId));
@@ -444,7 +461,8 @@ class PaperCupsController {
         _conversationChannel.containsKey(conv.id)
             ? _conversationChannel[conv.id]
             : null;
-    print("conversationChannel == .... ${conversationChannel}");
+    developer.log("conversationChannel == .... ${conversationChannel}",
+        level: 0, name: 'papercups.controller');
     _shoutMessage(
         p,
         conv,
@@ -482,7 +500,8 @@ class PaperCupsViewController {
     String previousConversationId =
         prevConversation != null ? prevConversation.id : null;
     String newConversationId = conversation != null ? conversation.id : null;
-    print("selecting conversation id: ${newConversationId}");
+    developer.log("selecting conversation id: ${newConversationId}",
+        level: 0, name: 'papercups.controller');
     //_messages.clear();
     if (_controller._conversations.containsKey(newConversationId)) {
       //_messages.addAll(_conversations[conversationId].messages);
@@ -493,11 +512,13 @@ class PaperCupsViewController {
       //onconversationunloaded(previousConversationId);
       //_conversationId = conversationId;
       if (newConversationId == null) {
-        print("reset messages: ${newConversationId}");
+        developer.log("reset messages: ${newConversationId}",
+            level: 0, name: 'papercups.controller');
         _conversation = null;
         _controller.setConversationChannel(newConversationId, null);
       } else {
-        print("join conversation id: ${newConversationId}");
+        developer.log("join conversation id: ${newConversationId}",
+            level: 0, name: 'papercups.controller');
         _conversation = _controller._conversations[newConversationId];
         _controller.join(_controller._conversations[newConversationId]);
       }
@@ -509,7 +530,8 @@ class PaperCupsViewController {
       //onconversationloaded(newConversationId);
       return true;
     } else {
-      print("reset messages: ${newConversationId}");
+      developer.log("reset messages: ${newConversationId}",
+          level: 0, name: 'papercups.controller');
       _controller.setConversationChannel(previousConversationId, null);
       _controller._stateStreamController.add(PaperCupsConversationUnloadEvent(
           conversationId: previousConversationId));
@@ -738,12 +760,14 @@ class _PaperCupsWidgetState2 extends State<PaperCupsWidgetB>
   }
 
   void setCustomer(PapercupsCustomer c, {rebuild = false}) {
-    print("setCustomer.... ${c.id} ${c.externalId}");
+    developer.log("setCustomer.... ${c.id} ${c.externalId}",
+        level: 0, name: 'papercups.controller');
     if (rebuild && mounted) setState(() {});
   }
 
   void setConversation(Conversation c) {
-    print("setConversation.... ${c.id} ${c.messages.length}");
+    developer.log("setConversation.... ${c.id} ${c.messages.length}",
+        level: 0, name: 'papercups.controller');
     if (mounted) setState(() {});
   }
 
