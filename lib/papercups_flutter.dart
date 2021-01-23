@@ -63,59 +63,11 @@ class ConversationPair {
   });
 }
 
-/*
-class PaperCupsActiveConversation {
-  Conversation _conversation;
-  Conversation get conversation {    
-    return _conversation;
-  }
-
-  Future<bool> selectChannel(
-      Conversation prevConversation, Conversation conversation
-      Function setConversationChannel,
-      Function onconversationunloaded,
-      Function onconversationloaded,
-      Function setConversationChannel,
-      
-      ) async {
-    String previousConversationId =
-        prevConversation != null ? prevConversation.id : null;
-    String newConversationId = conversation != null ? conversation.id : null;
-    print("selecting conversation id: ${newConversationId}");
-    //_messages.clear();
-    if (_conversations.containsKey(newConversationId)) {
-      //_messages.addAll(_conversations[conversationId].messages);
-      setConversationChannel(previousConversationId, null);
-      onconversationunloaded(previousConversationId);
-      //_conversationId = conversationId;
-      if (newConversationId == null) {
-        print("reset messages: ${newConversationId}");
-        setConversation(null);
-        setConversationChannel(newConversationId, null);
-      } else {
-        print("join conversation id: ${newConversationId}");
-        setConversation(_conversations[newConversationId]);
-        join(_conversations[newConversationId]);
-      }
-
-      onconversationloaded(newConversationId);
-      return true;
-    } else {
-      print("reset messages: ${newConversationId}");
-      setConversationChannel(previousConversationId, null);
-      onconversationunloaded(previousConversationId);
-      //_conversationId = conversationId;
-      setConversation(conversation);
-      setConversationChannel(newConversationId, null);
-      onconversationloaded(newConversationId);
-      return false;
-    }
-  }  
+class Update {
+  Future<Conversation> future;
 }
-*/
 
 typedef void RebuildFunction(void Function() fn, {bool stateMsg, bool animate});
-typedef void SetCustomerFunction(PapercupsCustomer c, {bool rebuild});
 typedef void SetConversationFunction(Conversation c);
 
 class PaperCupsController {
@@ -140,7 +92,7 @@ class PaperCupsController {
   PapercupsCustomer _customer;
   // internal rebuild function
   RebuildFunction rebuild;
-  SetConversationFunction setConversation;
+  //SetConversationFunction setConversation;
 
   //bool _connected = false;
   //List<PapercupsMessage> _messages = [];
@@ -287,13 +239,15 @@ class PaperCupsController {
     return conv;
   }
 
-  void goto(Props props, String conversationId) {
+  void goto(Props props, String conversationId, PaperCupsViewController view) {
     if (_conversations.containsKey(conversationId)) {
-      fetch(props, _conversations[conversationId], noDefaultLoad: true);
+      fetch(props, _conversations[conversationId],
+          noDefaultLoad: true, view: view);
     } else {
       //Create a new messages list so the DateTime is properly set.
       List<PapercupsMessage> messages = [messageFromString(props)];
-      fetch(props, Conversation(messages: messages), noDefaultLoad: true);
+      fetch(props, Conversation(messages: messages),
+          noDefaultLoad: true, view: view);
     }
   }
 
@@ -303,6 +257,7 @@ class PaperCupsController {
     _stateStreamController.add(PaperCupsCustomerIdentifiedEvent(c, rebuild));
   }
 
+  /*
   Future<bool> selectChannel(
       Conversation prevConversation, Conversation conversation) async {
     String previousConversationId =
@@ -347,6 +302,7 @@ class PaperCupsController {
       return false;
     }
   }
+  */
 
   //Identify the customer
   Future<PapercupsCustomer> identify(Props props, {bool create = false}) {
@@ -372,7 +328,8 @@ class PaperCupsController {
   Future<ConversationPair> getConversation(Props props,
       {bool joins,
       Conversation conversation,
-      Future<PapercupsCustomer> customer}) async {
+      Future<PapercupsCustomer> customer,
+      PaperCupsViewController view}) async {
     if (conversation != null && conversation.id != null) {
       PapercupsCustomer identifiedCustomer = await customer;
       PhoenixChannel channel = _conversationChannel[conversation.id];
@@ -399,8 +356,11 @@ class PaperCupsController {
       var completer = Completer<ConversationPair>();
       customer.then((identifiedCustomer) {
         var customerId = identifiedCustomer.id;
-        createConversation(props, conversation, _customer, setConversation)
-            .then((conversationDetails) {
+        createConversation(props, conversation, _customer, (Conversation a) {
+          view._conversation = a;
+          _stateStreamController
+              .add(PaperCupsConversationNavigatedEvent(a, false));
+        }).then((conversationDetails) {
           // Check if the conversation fullfills the basic requirements
           assert(conversationDetails.customerId == customerId &&
               conversationDetails.id != null);
@@ -425,7 +385,7 @@ class PaperCupsController {
   }
 
   Future<bool> fetch(Props props, Conversation conversation,
-      {bool noDefaultLoad = false}) {
+      {bool noDefaultLoad = false, PaperCupsViewController view}) {
     Completer<bool> _completer = Completer<bool>();
     print("fetch to ${conversation}");
     identify(props).then((customer) {
@@ -448,7 +408,8 @@ class PaperCupsController {
               selectedChannel = inbox.conversationId;
             else
               selectedChannel = conversation.id;
-            selectChannel(conversation, Conversation(id: selectedChannel))
+            view
+                ._selectChannel(conversation, Conversation(id: selectedChannel))
                 .then((value) {
               _completer.complete(inbox.failed);
             });
@@ -456,7 +417,7 @@ class PaperCupsController {
         });
       } else {
         print("Setting channel to ${conversation}");
-        selectChannel(conversation, conversation).then((value) {
+        view._selectChannel(conversation, conversation).then((value) {
           _completer.complete(false);
         });
       }
@@ -515,18 +476,6 @@ class PaperCupsController {
     );
   }
 
-  bool isDarkText(Props props, BuildContext context) {
-    bool textBlack = false;
-    if ((props.primaryColor != null &&
-            props.primaryColor.computeLuminance() > 0.5) ||
-        (props.primaryGradient != null &&
-            props.primaryGradient.colors[0].computeLuminance() > 0.5) ||
-        (props.primaryColor == null &&
-            Theme.of(context).primaryColor.computeLuminance() > 0.5))
-      textBlack = true;
-    return textBlack;
-  }
-
   void _shoutMessage(Props props, Conversation conv, PapercupsMessage msg,
       Future<ConversationPair> channel) {
     rebuild(() {
@@ -567,6 +516,7 @@ class PaperCupsController {
     Props p,
     Conversation conv,
     PapercupsMessage msg,
+    PaperCupsViewController view,
   ) async {
     PhoenixChannel conversationChannel =
         _conversationChannel.containsKey(conv.id)
@@ -582,6 +532,7 @@ class PaperCupsController {
           getConversation(p,
               joins: true,
               conversation: conv,
+              view: view,
               // identify the customer
               customer: identify(p, create: true)));
     } else {
@@ -609,8 +560,57 @@ class PaperCupsViewController {
     return _controller;
   }
 
-  void navigate(Conversation conversation) {
-    _conversation = conversation;
+  Future<bool> _selectChannel(
+      Conversation prevConversation, Conversation conversation) async {
+    String previousConversationId =
+        prevConversation != null ? prevConversation.id : null;
+    String newConversationId = conversation != null ? conversation.id : null;
+    print("selecting conversation id: ${newConversationId}");
+    //_messages.clear();
+    if (_controller._conversations.containsKey(newConversationId)) {
+      //_messages.addAll(_conversations[conversationId].messages);
+      _controller.setConversationChannel(previousConversationId, null);
+      _controller._stateStreamController.add(PaperCupsConversationUnloadEvent(
+          conversationId: previousConversationId));
+
+      //onconversationunloaded(previousConversationId);
+      //_conversationId = conversationId;
+      if (newConversationId == null) {
+        print("reset messages: ${newConversationId}");
+        _conversation = null;
+        _controller.setConversationChannel(newConversationId, null);
+      } else {
+        print("join conversation id: ${newConversationId}");
+        _conversation = _controller._conversations[newConversationId];
+        _controller.join(_controller._conversations[newConversationId]);
+      }
+
+      _controller._stateStreamController.add(
+          PaperCupsConversationLoadEvent(conversationId: newConversationId));
+      _controller._stateStreamController
+          .add(PaperCupsConversationNavigatedEvent(_conversation, false));
+      //onconversationloaded(newConversationId);
+      return true;
+    } else {
+      print("reset messages: ${newConversationId}");
+      _controller.setConversationChannel(previousConversationId, null);
+      _controller._stateStreamController.add(PaperCupsConversationUnloadEvent(
+          conversationId: previousConversationId));
+      //onconversationunloaded(previousConversationId);
+      //_conversationId = conversationId;
+      _conversation = conversation;
+      _controller.setConversationChannel(newConversationId, null);
+      //onconversationloaded(newConversationId);
+      _controller._stateStreamController.add(
+          PaperCupsConversationLoadEvent(conversationId: newConversationId));
+      _controller._stateStreamController
+          .add(PaperCupsConversationNavigatedEvent(_conversation, false));
+      return false;
+    }
+  }
+
+  Future<bool> navigate(Conversation conversation) {
+    return _selectChannel(_conversation, Conversation(id: conversation.id));
   }
 
   PaperCupsViewController(this._controller);
@@ -621,11 +621,9 @@ abstract class _PaperCupsMixin {
   PaperCupsViewController viewController;
   void rebuild(void Function() fn, {bool stateMsg = false, animate = false});
   void setCustomer(PapercupsCustomer c, {rebuild = false});
-  void setConversation(Conversation c);
   void initStateA(Props props) {
     messagingController = PaperCupsController();
     messagingController.rebuild = rebuild;
-    messagingController.setConversation = setConversation;
     viewController = PaperCupsViewController(messagingController);
     messagingController.initStateA(props);
   }
@@ -635,8 +633,22 @@ abstract class _PaperCupsMixin {
   }
 }
 
+abstract class _PaperCupsThemeMixin {
+  bool isDarkText(Props props, BuildContext context) {
+    bool textBlack = false;
+    if ((props.primaryColor != null &&
+            props.primaryColor.computeLuminance() > 0.5) ||
+        (props.primaryGradient != null &&
+            props.primaryGradient.colors[0].computeLuminance() > 0.5) ||
+        (props.primaryColor == null &&
+            Theme.of(context).primaryColor.computeLuminance() > 0.5))
+      textBlack = true;
+    return textBlack;
+  }
+}
+
 class _PaperCupsWidgetState2 extends State<PaperCupsWidgetB>
-    with _PaperCupsMixin {
+    with _PaperCupsMixin, _PaperCupsThemeMixin {
   ScrollController _controller = ScrollController();
   // internal the current active conversation
 
@@ -655,7 +667,8 @@ class _PaperCupsWidgetState2 extends State<PaperCupsWidgetB>
     }
 
     messagingController._stateMessageController.stream.listen((event) {
-      _sendMessageEx(widget.props, event);
+      messagingController._sendMessage(
+          widget.props, viewController.conversation, event, viewController);
     });
 
     messagingController._sendingStatusChanged.listen((event) {
@@ -699,6 +712,13 @@ class _PaperCupsWidgetState2 extends State<PaperCupsWidgetB>
       setCustomer(event.customer, rebuild: event.rebuild);
     });
 
+    messagingController._stateStreamController.stream
+        .where((event) => event is PaperCupsConversationNavigatedEvent)
+        .cast<PaperCupsConversationNavigatedEvent>()
+        .listen((event) {
+      setConversation(event.conversation);
+    });
+
     messagingController._stateStreamController.stream.handleError((error) {
       String _desc = error.toString();
       Alert.show(
@@ -729,7 +749,7 @@ class _PaperCupsWidgetState2 extends State<PaperCupsWidgetB>
     }
 
     messagingController
-        .fetch(widget.props, viewController.conversation)
+        .fetch(widget.props, viewController.conversation, view: viewController)
         .then((failed) {
       if (failed) {
         messagingController._stateStreamController.addError(
@@ -761,7 +781,7 @@ class _PaperCupsWidgetState2 extends State<PaperCupsWidgetB>
   @override
   void didChangeDependencies() {
     messagingController.connect(widget.props);
-    textBlack = messagingController.isDarkText(widget.props, context);
+    textBlack = isDarkText(widget.props, context);
     super.didChangeDependencies();
   }
 
@@ -773,12 +793,12 @@ class _PaperCupsWidgetState2 extends State<PaperCupsWidgetB>
             builder: (context) => PaperCupsWidgetB(props: widget.props)),
       );
     } else {
-      messagingController.goto(widget.props, conversationId);
+      messagingController.goto(widget.props, conversationId, viewController);
     }
   }
 
   void newchat() {
-    messagingController.goto(widget.props, null);
+    messagingController.goto(widget.props, null, viewController);
   }
 
   void setCustomer(PapercupsCustomer c, {rebuild = false}) {
@@ -786,10 +806,9 @@ class _PaperCupsWidgetState2 extends State<PaperCupsWidgetB>
     if (rebuild && mounted) setState(() {});
   }
 
-  @override
   void setConversation(Conversation c) {
     print("setConversation.... ${c.id} ${c.messages.length}");
-    viewController.navigate(c);
+    //viewController.navigate(c);
     if (mounted) setState(() {});
   }
 
@@ -815,13 +834,6 @@ class _PaperCupsWidgetState2 extends State<PaperCupsWidgetB>
           );
       });
     }
-  }
-
-  void _sendMessageEx(
-    Props p,
-    PapercupsMessage msg,
-  ) {
-    messagingController._sendMessage(p, viewController.conversation, msg);
   }
 
   Widget conversationInbox(BuildContext context) {
