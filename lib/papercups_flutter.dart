@@ -244,74 +244,11 @@ class PaperCupsController {
     return conv;
   }
 
-  void goto(Props props, String conversationId, PaperCupsViewController view) {
-    if (_conversations.containsKey(conversationId)) {
-      fetch(props, _conversations[conversationId], noDefaultLoad: true)
-          .then((update) {
-        view._selectChannel(update.oldConversation, update.newConversation);
-      });
-    } else {
-      //Create a new messages list so the DateTime is properly set.
-      List<PapercupsMessage> messages = [messageFromString(props)];
-      fetch(props, Conversation(messages: messages), noDefaultLoad: true)
-          .then((update) {
-        view._selectChannel(update.oldConversation, update.newConversation);
-      });
-    }
-  }
-
   void setCustomer(PapercupsCustomer c, {rebuild = false}) {
     print("setCustomer.... ${c.id} ${c.externalId}");
     _customer = c;
     _stateStreamController.add(PaperCupsCustomerIdentifiedEvent(c, rebuild));
   }
-
-  /*
-  Future<bool> selectChannel(
-      Conversation prevConversation, Conversation conversation) async {
-    String previousConversationId =
-        prevConversation != null ? prevConversation.id : null;
-    String newConversationId = conversation != null ? conversation.id : null;
-    print("selecting conversation id: ${newConversationId}");
-    //_messages.clear();
-    if (_conversations.containsKey(newConversationId)) {
-      //_messages.addAll(_conversations[conversationId].messages);
-      setConversationChannel(previousConversationId, null);
-      _stateStreamController.add(PaperCupsConversationUnloadEvent(
-          conversationId: previousConversationId));
-
-      //onconversationunloaded(previousConversationId);
-      //_conversationId = conversationId;
-      if (newConversationId == null) {
-        print("reset messages: ${newConversationId}");
-        setConversation(null);
-        setConversationChannel(newConversationId, null);
-      } else {
-        print("join conversation id: ${newConversationId}");
-        setConversation(_conversations[newConversationId]);
-        join(_conversations[newConversationId]);
-      }
-
-      _stateStreamController.add(
-          PaperCupsConversationLoadEvent(conversationId: newConversationId));
-      //onconversationloaded(newConversationId);
-      return true;
-    } else {
-      print("reset messages: ${newConversationId}");
-      setConversationChannel(previousConversationId, null);
-      _stateStreamController.add(PaperCupsConversationUnloadEvent(
-          conversationId: previousConversationId));
-      //onconversationunloaded(previousConversationId);
-      //_conversationId = conversationId;
-      setConversation(conversation);
-      setConversationChannel(newConversationId, null);
-      //onconversationloaded(newConversationId);
-      _stateStreamController.add(
-          PaperCupsConversationLoadEvent(conversationId: newConversationId));
-      return false;
-    }
-  }
-  */
 
   //Identify the customer
   Future<PapercupsCustomer> identify(Props props, {bool create = false}) {
@@ -592,6 +529,25 @@ class PaperCupsViewController {
     return _selectChannel(_conversation, Conversation(id: conversation.id));
   }
 
+  void goto(Props props, String conversationId) {
+    if (_controller._conversations.containsKey(conversationId)) {
+      _controller
+          .fetch(props, _controller._conversations[conversationId],
+              noDefaultLoad: true)
+          .then((update) {
+        _selectChannel(update.oldConversation, update.newConversation);
+      });
+    } else {
+      //Create a new messages list so the DateTime is properly set.
+      List<PapercupsMessage> messages = [_controller.messageFromString(props)];
+      _controller
+          .fetch(props, Conversation(messages: messages), noDefaultLoad: true)
+          .then((update) {
+        _selectChannel(update.oldConversation, update.newConversation);
+      });
+    }
+  }
+
   PaperCupsViewController(this._controller);
 }
 
@@ -599,7 +555,6 @@ abstract class _PaperCupsMixin {
   PaperCupsController messagingController;
   PaperCupsViewController viewController;
   void rebuild(void Function() fn, {bool stateMsg = false, animate = false});
-  void setCustomer(PapercupsCustomer c, {rebuild = false});
   void initStateA(Props props) {
     messagingController = PaperCupsController();
     messagingController.rebuild = rebuild;
@@ -771,12 +726,12 @@ class _PaperCupsWidgetState2 extends State<PaperCupsWidgetB>
             builder: (context) => PaperCupsWidgetB(props: widget.props)),
       );
     } else {
-      messagingController.goto(widget.props, conversationId, viewController);
+      viewController.goto(widget.props, conversationId);
     }
   }
 
   void newchat() {
-    messagingController.goto(widget.props, null, viewController);
+    viewController.goto(widget.props, null);
   }
 
   void setCustomer(PapercupsCustomer c, {rebuild = false}) {
