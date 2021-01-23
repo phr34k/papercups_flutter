@@ -426,27 +426,6 @@ class PaperCupsController {
         print("Setting channel to ${conversation}");
         _completer.complete(Update(conversation, conversation));
       }
-
-      /*
-      getCustomerHistory(
-        conversationChannel: _conversationChannel,
-        c: _customer,
-        messages: _messages,
-        rebuild: rebuild,
-        setConversationChannel: setConversationChannel,
-        setCustomer: setCustomer,
-        socket: _socket,
-        p: props,
-      ).then((failed) {
-        if (failed) {
-          noConnection = true;
-          ondisconnected();
-          _completer.complete(failed);
-        } else {
-          _completer.complete(failed);
-        }
-      });
-      */
     }).catchError((error) {
       _stateMessageController.addError(error);
     });
@@ -528,27 +507,22 @@ class PaperCupsController {
             ? _conversationChannel[conv.id]
             : null;
     print("conversationChannel == .... ${conversationChannel}");
-    if (conversationChannel == null) {
-      _shoutMessage(
-          p,
-          conv,
-          msg,
-          // create or get the conversation
-          getConversation(p,
-              joins: true,
-              conversation: conv,
-              view: view,
-              // identify the customer
-              customer: identify(p, create: true)));
-    } else {
-      _shoutMessage(
-          p,
-          conv,
-          msg,
-          // we already have a cusomer, channel, conversation
-          Future<ConversationPair>.value(ConversationPair(
-              channel: _channel, customer: _customer, conversation: conv)));
-    }
+    _shoutMessage(
+        p,
+        conv,
+        msg,
+        conversationChannel == null
+            ?
+            // create or get the conversation
+            getConversation(p,
+                joins: true,
+                conversation: conv,
+                view: view,
+                // find the custerom, since we don't have a channel, likely we don't have customer yet either
+                customer: identify(p, create: true))
+            // we already have all three components (channel, conversation, customer)
+            : Future<ConversationPair>.value(ConversationPair(
+                channel: _channel, customer: _customer, conversation: conv)));
   }
 }
 
