@@ -724,9 +724,9 @@ class _PaperCupsWidgetState2 extends State<PaperCupsWidgetB>
       viewController.selectChannel(
           update.oldConversation, update.newConversation);
       if (mounted) setState(() {});
-    }, onError: () {
+    }, onError: (error) {
       messagingController.stateStreamController.addError(
-          "There was an issue retrieving your details. Please try again!");
+          "There was an issue retrieving your details. Please try again! ${error}");
     });
 
     rebuild(() {}, animate: wasDisconnected);

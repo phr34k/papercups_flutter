@@ -6,6 +6,7 @@ import 'dart:async';
 import 'dart:core';
 import 'getCustomerDetailsFromMetadata.dart';
 import 'getPastCustomerMessages.dart';
+import 'dart:developer' as developer;
 
 String findLastConversationId(Map<String, Conversation> msgs) {
   List<PapercupsMessage> messages = [];
@@ -50,6 +51,9 @@ Future<Inbox> getCustomerHistoryEx({
     );
     if (customer != null) failed = false;
     if (customer != null && customer.id != null) {
+      developer.log("getPastCustomerMessagesEx",
+          level: 0, name: 'papercups.controller');
+
       // If customer is not null and there is an ID get the past messages.
       var data = await getPastCustomerMessagesEx(p, customer);
       if (data["msgs"] != null) failed = false;
@@ -81,6 +85,8 @@ Future<Inbox> getCustomerHistoryEx({
         result.conversationId = null;
       }
 
+      developer.log("updateUserMetadataEx",
+          level: 0, name: 'papercups.controller');
       if (data["cust"] != null && data["cust"] != customer) {
         // Determine if we need to update the customer details.
         var nCust =
@@ -96,7 +102,8 @@ Future<Inbox> getCustomerHistoryEx({
       }
     }
   } catch (e) {
-    print("exception ${e}");
+    developer.log("Error on inbox $e ${e}",
+        level: 0, name: 'papercups.controller');
     failed = true;
   }
 

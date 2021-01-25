@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart';
 import '../models/models.dart';
+import 'dart:developer' as developer;
 
 /// This function is used to get the past messages from the customer.
 Future<Map<String, dynamic>> getPastCustomerMessages(
@@ -84,6 +85,10 @@ Future<Map<String, dynamic>> getPastCustomerMessages(
   };
 }
 
+int parse(dynamic number) {
+  return int.parse(number.toString());
+}
+
 /// This function is used to get the past messages from the customer.
 Future<Map<String, dynamic>> getPastCustomerMessagesEx(
   Props p,
@@ -112,6 +117,9 @@ Future<Map<String, dynamic>> getPastCustomerMessagesEx(
     var json = jsonDecode(res.body)["data"];
     // For multiple conversations
     json.forEach((data) {
+      developer.log("conversation ${data.toString()}",
+          level: 0, name: 'papercups.controller');
+
       // Create dummy conversation object
       var conv = Conversation();
       conv.id = data["id"];
@@ -121,7 +129,12 @@ Future<Map<String, dynamic>> getPastCustomerMessagesEx(
       conv.status = data["status"];
       conv.priority = data["priority"];
       conv.createdAt = data["created_at"];
-      conv.asigneeId = data["assignee_id"];
+      conv.asigneeId = data["assignee_id"] != null
+          ? parse(data["assignee_id"]).toString()
+          : null;
+
+      developer.log("get customer details...",
+          level: 0, name: 'papercups.controller');
 
       // Get the customer details.
       var customerData = data["customer"];
@@ -137,24 +150,32 @@ Future<Map<String, dynamic>> getPastCustomerMessagesEx(
         phone: customerData["phone"],
       );
 
+      developer.log("iterate through messages...",
+          level: 0, name: 'papercups.controller');
+
       // For every message generate a PapercupsMessage object and add it to the list.
       data["messages"].forEach((val) {
+        developer.log("message ${val.toString()}",
+            level: 0, name: 'papercups.controller');
+
         //String conversation_id = val["conversation_id"] as String;
         conv.messages.add(
           PapercupsMessage(
-            accountId: val["account_id"],
+            accountId: val["account_id"].toString(),
             body: val["body"],
             createdAt: DateTime.tryParse(val["created_at"]),
             sentAt: DateTime.tryParse(val["sent_at"]),
-            conversationId: val["conversation_id"],
-            customerId: val["customer_id"],
+            conversationId: val["conversation_id"].toString(),
+            customerId: val["customer_id"].toString(),
             customer: c,
-            id: val["id"],
-            userId: val["user_id"],
+            id: val["id"].toString(),
+            userId: val["user_id"] != null
+                ? parse(val["user_id"].toString())
+                : null,
             user: val["user"] != null
                 ? User(
                     email: val["user"]["email"],
-                    id: val["user"]["id"],
+                    id: parse(val["user"]["id"]).toString(),
                     role: val["user"]["role"],
                     fullName: (val["user"]["full_name"] != null)
                         ? val["user"]["full_name"]
@@ -169,7 +190,8 @@ Future<Map<String, dynamic>> getPastCustomerMessagesEx(
       });
     });
   } catch (e) {
-    print("An error ocurred while getting past customer data. $e");
+    developer.log("An error ocurred while getting getPastCustomerMessages. $e",
+        level: 0, name: 'papercups.controller');
   }
   client.close();
   // Return messages and customer details.

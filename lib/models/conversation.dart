@@ -5,7 +5,8 @@ class Conversation {
   /// The account ID used for the conversation.
   String accountId;
 
-  /// Who has the conversation assigned on the papercups dashboard.
+  /// Who has the conversation assigned on the papercups dashboard, is an integer
+  /// but converted to string so it can be nullable.
   String asigneeId;
 
   /// When the conversation was created.

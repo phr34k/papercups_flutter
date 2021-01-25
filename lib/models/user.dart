@@ -9,8 +9,8 @@ class User {
   ///  The email of the agent.
   String email;
 
-  /// The unique ID of the person in Papercups.
-  int id;
+  /// The unique ID of the person in Papercups, is an integer but converted to string so it can be nullable
+  String id;
 
   /// The role of the agent.
   String role;
