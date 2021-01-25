@@ -74,8 +74,6 @@ class Update {
 }
 
 class PaperCupsController {
-  StreamController<PapercupsMessage> stateMessageController =
-      StreamController<PapercupsMessage>();
   StreamController stateStreamController = StreamController.broadcast();
   // ignore: unused_field
   Stream<PaperCupsConnectedEvent> openStream;
@@ -210,7 +208,6 @@ class PaperCupsController {
   void disposeA() {
     if (_channel != null) _channel.close();
     if (_socket != null) _socket.dispose();
-    if (stateMessageController != null) stateMessageController.close();
     if (_conversationChannel.isNotEmpty) {
       _conversationChannel.forEach((key, value) {
         value.close();
@@ -380,7 +377,7 @@ class PaperCupsController {
         _completer.complete(Update(conversation, conversation));
       }
     }).catchError((error) {
-      stateMessageController.addError(error);
+      stateStreamController.addError(error);
     });
 
     return _completer.future;
@@ -415,41 +412,50 @@ class PaperCupsController {
 
   void _shoutMessage(Props props, Conversation conv, PapercupsMessage msg,
       Future<ConversationPair> channel) {
+    developer.log("say message, add to conversation",
+        level: 0, name: 'papercups.controller');
+    conv.messages.add(msg);
     stateStreamController.add(PaperCupsConversationMessageSendEvent(
       messages: [msg],
     ));
 
-    channel.then((value) {
-      msg.customer = value.customer;
-      developer.log(
-          "setCustomer.... ${msg.customer.id} ${msg.customer.externalId}",
-          level: 0,
-          name: 'papercups.controller');
-      assert(msg != null && msg.customer != null);
-      stateStreamController.add(PaperCupsConversationMessageSending(
-          channel: value.channel, conversationId: msg.conversationId));
+    if (_socket != null && _socket.isConnected) {
+      channel.then((value) {
+        msg.customer = value.customer;
+        developer.log(
+            "setCustomer.... ${msg.customer.id} ${msg.customer.externalId}",
+            level: 0,
+            name: 'papercups.controller');
+        assert(msg != null && msg.customer != null);
+        stateStreamController.add(PaperCupsConversationMessageSending(
+            channel: value.channel, conversationId: msg.conversationId));
 
-      var push = value.channel.push(
-        "shout",
-        {
-          "body": msg.body,
-          "customer_id": msg.customer.id,
-          "sent_at": msg.createdAt.toIso8601String(),
-        },
-      );
-      push.future.then((response) {
-        stateStreamController.add(PaperCupsConversationMessageDone(
-            channel: value.channel, conversationId: msg.conversationId));
-        if (response.isError || response.isTimeout) {
-          msg.sentAt = null;
-        } else {
-          updateUserMetadataEx(props, msg.customer, msg.customer.id);
-        }
+        var push = value.channel.push(
+          "shout",
+          {
+            "body": msg.body,
+            "customer_id": msg.customer.id,
+            "sent_at": msg.createdAt.toIso8601String(),
+          },
+        );
+        push.future.then((response) {
+          stateStreamController.add(PaperCupsConversationMessageDone(
+              channel: value.channel, conversationId: msg.conversationId));
+          if (response.isError || response.isTimeout) {
+            msg.sentAt = null;
+          } else {
+            updateUserMetadataEx(props, msg.customer, msg.customer.id);
+          }
+        }, onError: (error) {
+          stateStreamController.add(PaperCupsConversationMessageDone(
+              channel: value.channel, conversationId: msg.conversationId));
+        });
       }, onError: (error) {
-        stateStreamController.add(PaperCupsConversationMessageDone(
-            channel: value.channel, conversationId: msg.conversationId));
+        stateStreamController.addError(error);
       });
-    });
+    } else {
+      stateStreamController.addError("Need to be connected first");
+    }
   }
 
   void say(
@@ -484,6 +490,8 @@ class PaperCupsController {
 }
 
 class PaperCupsViewController {
+  StreamController<PapercupsMessage> stateMessageController =
+      StreamController<PapercupsMessage>();
   // internal controller associated for this view
   final PaperCupsController _controller;
   // intnernal conversation object associated with this view
@@ -494,6 +502,10 @@ class PaperCupsViewController {
 
   PaperCupsController get controller {
     return _controller;
+  }
+
+  void disposeA() {
+    if (stateMessageController != null) stateMessageController.close();
   }
 
   Future<bool> selectChannel(
@@ -582,6 +594,7 @@ mixin PaperCupsMixin {
   }
 
   void disposeA() {
+    viewController.disposeA();
     messagingController.disposeA();
   }
 }
@@ -623,20 +636,18 @@ class _PaperCupsWidgetState2 extends State<PaperCupsWidgetB>
       });
     }
 
-    messagingController.stateMessageController.stream.listen((event) {
+    viewController.stateMessageController.stream.listen((event) {
       messagingController.say(
           widget.props, viewController.conversation, event, viewController);
     });
 
     messagingController.sendingStatusChanged.listen((event) {
       if (event is PaperCupsConversationMessageSending) {
-        setState(() {
-          _sending = true;
-        });
+        _sending = true;
+        if (mounted) setState(() {});
       } else if (event is PaperCupsConversationMessageDone) {
-        setState(() {
-          _sending = false;
-        });
+        _sending = false;
+        if (mounted) setState(() {});
       }
     });
 
@@ -946,8 +957,7 @@ class _PaperCupsWidgetState2 extends State<PaperCupsWidgetB>
                           textBlack, !widget.floatingSendMessage)
                       : SendMessage(
                           props: widget.props,
-                          controller:
-                              messagingController.stateMessageController,
+                          controller: viewController.stateMessageController,
                           //customer: _customer,
                           //setCustomer: setCustomer,
                           //setConversation: setConversation,
