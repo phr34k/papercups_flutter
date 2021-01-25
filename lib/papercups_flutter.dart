@@ -358,7 +358,8 @@ class PaperCupsController {
                 .completeError("An error occured while getting the inbox");
           } else {
             conversations.clear();
-            conversations.addAll(inbox.conversations);
+            if (inbox.conversations != null)
+              conversations.addAll(inbox.conversations);
 
             String selectedChannel = null;
             if (conversation == null &&
@@ -366,7 +367,7 @@ class PaperCupsController {
                 noDefaultLoad == false)
               selectedChannel = inbox.conversationId;
             else
-              selectedChannel = conversation.id;
+              selectedChannel = conversation != null ? conversation.id : null;
             _completer.complete(
                 Update(conversation, Conversation(id: selectedChannel)));
           }
