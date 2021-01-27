@@ -254,11 +254,19 @@ class PaperCupsController {
 
   //Identify the customer
   Future<PapercupsCustomer> identify(Props props, {bool create = false}) {
+    _logger.log(Level.FINEST, "find identity of the customer....");
+
     if (props.customer != null &&
         props.customer.externalId != null &&
-        (_customer == null || _customer.createdAt == null)) {
-      _logger.log(Level.FINEST, "identity getCustomerDetailsFromMetadata");
-      return getCustomerDetailsFromMetadata(props, _customer, setCustomer);
+        (_customer.id == null || _customer.createdAt == null)) {
+      if (create == true &&
+          (_customer.id == null || _customer.createdAt == null)) {
+        _logger.log(Level.FINEST, "identity getCustomerDetails");
+        return getCustomerDetails(props, _customer, setCustomer);
+      } else {
+        _logger.log(Level.FINEST, "identity getCustomerDetailsFromMetadata");
+        return getCustomerDetailsFromMetadata(props, _customer, setCustomer);
+      }
     } else if (_customer == null) {
       if (create == true) {
         _logger.log(Level.FINEST, "identity getCustomerDetails");
