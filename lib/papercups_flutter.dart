@@ -416,51 +416,85 @@ class PaperCupsController {
       messages: [msg],
     ));
 
-    if (_socket != null && _socket.isConnected) {
-      channel.then((value) {
-        msg.customer = value.customer;
-        assert(msg != null && msg.customer != null);
-        _logger.log(Level.FINEST,
-            "setCustomer.... ${msg.customer.id} ${msg.customer.externalId}");
-        stateStreamController.add(PaperCupsConversationMessageSending(
-            channel: value.channel, conversationId: msg.conversationId));
+    //if (_socket != null && _socket.isConnected) {
+    channel.then((value) {
+      msg.customer = value.customer;
+      assert(msg != null && msg.customer != null);
+      _logger.log(Level.FINEST,
+          "setCustomer.... ${msg.customer.id} ${msg.customer.externalId}");
+      stateStreamController.add(PaperCupsConversationMessageSending(
+          channel: value.channel, conversationId: msg.conversationId));
 
-        if (value.channel == null) {
-          _logger.log(
-              Level.FINEST, "couldn't create a realtime connection to channel");
-          stateStreamController.addError("No connection to channel");
-        } else {
-          if (value.channel.canPush == true) {
-            try {
-              var push = Push(value.channel,
-                  event: PhoenixChannelEvent.custom("shout"),
-                  payload: () => {
-                        "body": msg.body,
-                        "customer_id": msg.customer.id,
-                        "sent_at": msg.createdAt.toIso8601String(),
-                      });
+      if (value.channel == null) {
+        _logger.log(
+            Level.FINEST, "couldn't create a realtime connection to channel");
+        stateStreamController.addError("No connection to channel");
+      } else {
+        var channel = value.channel;
+        if (value.channel.canPush == true) {
+          try {
+            var wasReplied = false;
+            var push = value.channel.push(
+                "shout",
+                {
+                  "body": msg.body,
+                  "customer_id": msg.customer.id,
+                  "sent_at": msg.createdAt.toIso8601String(),
+                },
+                new Duration(seconds: 20));
 
-              var f = push.send();
-              updateUserMetadataEx(props, msg.customer, msg.customer.id);
-              stateStreamController.add(PaperCupsConversationMessageDone(
-                  channel: value.channel, conversationId: msg.conversationId));
-            } catch (e) {
+            channel
+                .onPushReply(PhoenixChannelEvent.custom("shout"))
+                .then((message) {
+              var replyProps = message.props[4] as Map<String, dynamic>;
+              if (replyProps["type"] == "reply") {
+                wasReplied = true;
+                try {
+                  push.trigger(PushResponse.fromMessage(message));
+                } catch (e) {
+                  _logger.log(Level.FINEST, "exception:", e);
+                }
+
+                msg.id = replyProps["id"];
+                msg.sentAt = replyProps["sent_at"] != null
+                    ? DateTime.tryParse(replyProps["sent_at"])
+                    : null;
+                stateStreamController.add(PaperCupsConversationMessageDone(
+                    channel: channel, conversationId: msg.conversationId));
+                updateUserMetadataEx(props, msg.customer, msg.customer.id);
+              }
+            });
+
+            push.future.then((value) {}).catchError((error) {
+              if (!(error is ChannelTimeoutException)) {
+                _logger.log(Level.FINEST, "exception:", error);
+              } else {
+                if (wasReplied == false) {
+                  _logger.log(Level.FINEST, "exception:", error);
+                }
+              }
+            });
+          } catch (e) {
+            if (!(e is ChannelTimeoutException)) {
               _logger.log(Level.FINEST, "exception: $e ${e}");
               stateStreamController.add(PaperCupsConversationMessageDone(
                   channel: value.channel, conversationId: msg.conversationId));
             }
-          } else {
-            _logger.log(Level.FINEST,
-                "couldn't create a realtime connection to channel");
-            stateStreamController.addError("No connection to channel");
           }
+        } else {
+          _logger.log(
+              Level.FINEST, "couldn't create a realtime connection to channel");
+          stateStreamController.addError("No connection to channel");
         }
-      }, onError: (error) {
-        stateStreamController.addError(error);
-      });
+      }
+    }, onError: (error) {
+      stateStreamController.addError(error);
+    });
+    /*
     } else {
       stateStreamController.addError("Need to be connected first");
     }
+    */
   }
 
   void say(

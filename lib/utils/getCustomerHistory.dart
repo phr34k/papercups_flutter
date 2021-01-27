@@ -19,7 +19,7 @@ String findLastConversationId(Map<String, Conversation> msgs) {
     return a.createdAt.compareTo(b.createdAt);
   });
 
-  return messages[0].conversationId;
+  return messages.isNotEmpty ? messages[0].conversationId : null;
 }
 
 class Inbox {
