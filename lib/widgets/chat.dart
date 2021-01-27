@@ -145,12 +145,15 @@ class _ChatMessageState extends State<ChatMessage> {
     var isLast = widget.index == widget.msgs.length - 1;
     var isFirst = widget.index == 0;
 
-    if (!isLast && (nextMsg.sentAt.day != msg.sentAt.day) && longDay == null) {
-      try {
-        longDay = DateFormat.yMMMMd(widget.locale).format(nextMsg.sentAt);
-      } catch (e) {
-        print("ERROR: Error generating localized date!");
-        longDay = "Loading...";
+    if (!isLast) {
+      DateTime sendTime = nextMsg.sentAt.toLocal();
+      if ((sendTime.day != sendTime.day) && longDay == null) {
+        try {
+          longDay = DateFormat.yMMMMd(widget.locale).format(sendTime.toLocal());
+        } catch (e) {
+          print("ERROR: Error generating localized date!");
+          longDay = "Loading...";
+        }
       }
     }
     if (userSent && isLast && widget.timeagoLocale != null) {
@@ -350,7 +353,7 @@ class _ChatMessageState extends State<ChatMessage> {
                 child: Text(
                   widget.sending
                       ? widget.sendingText
-                      : "${widget.sentText} ${timeago.format(msg.createdAt)}",
+                      : "${widget.sentText} ${timeago.format(msg.createdAt.toLocal())}",
                   textAlign: TextAlign.end,
                   style: TextStyle(color: Colors.grey),
                 ),
@@ -402,7 +405,7 @@ class TimeWidget extends StatelessWidget {
       child: Padding(
         padding: EdgeInsets.only(bottom: 5.0, left: 4, right: 4),
         child: Text(
-          TimeOfDay.fromDateTime(msg.createdAt).format(context),
+          TimeOfDay.fromDateTime(msg.createdAt.toLocal()).format(context),
           style: TextStyle(
             color: Theme.of(context).textTheme.bodyText1.color.withAlpha(100),
             fontSize: 10,
