@@ -14,6 +14,11 @@ import 'dart:developer' as developer;
 export 'models/classes.dart';
 export 'package:timeago/timeago.dart';
 
+void log(String error, {int level, String name}) {
+  developer.log(error, level: level, name: name);
+  print(error);
+}
+
 class PaperCupsWidgetB extends StatefulWidget {
   /// Initialize the props that you will pass on PaperCupsWidget.
   final Props props;
@@ -136,37 +141,34 @@ class PaperCupsController {
 
   Future<PhoenixSocket> connect(Props props,
       {bool retry, PhoenixSocketOptions options}) {
-    developer.log("connecting...", level: 0, name: 'papercups.controller');
+    log("connecting...", level: 0, name: 'papercups.controller');
     if (_socket == null) {
       try {
         _socket = PhoenixSocket("wss://" + props.baseUrl + '/socket/websocket',
             socketOptions: options);
       } catch (e) {
-        developer.log("connecting had an exception... ${e}",
+        log("connecting had an exception... ${e}",
             level: 0, name: 'papercups.controller');
         _socket = null;
         return Future<PhoenixSocket>.value(null);
       }
 
       _socket.closeStream.listen((event) {
-        developer.log("stream closed....",
-            level: 0, name: 'papercups.controller');
+        log("stream closed....", level: 0, name: 'papercups.controller');
         stateStreamController.add(PaperCupsDisconnectedEvent());
       });
 
       _socket.openStream.listen(
         (event) {
           //var completer = Completer<bool>();
-          developer.log("stream opened....",
-              level: 0, name: 'papercups.controller');
+          log("stream opened....", level: 0, name: 'papercups.controller');
           _channel = initChannelsEx(_socket, props, null);
           stateStreamController.add(PaperCupsConnectedEvent());
         },
       );
 
       _socket.errorStream.listen((event) {
-        developer.log("stream errored....",
-            level: 0, name: 'papercups.controller');
+        log("stream errored....", level: 0, name: 'papercups.controller');
         stateStreamController.addError(event);
       });
 
@@ -175,10 +177,9 @@ class PaperCupsController {
         stateStreamController.addError(error);
       });
       */
-      developer.log("connecting....", level: 0, name: 'papercups.controller');
+      log("connecting....", level: 0, name: 'papercups.controller');
       _socket.connect();
-      developer.log("connecting done....",
-          level: 0, name: 'papercups.controller');
+      log("connecting done....", level: 0, name: 'papercups.controller');
 
       return Future<PhoenixSocket>.value(_socket);
     } else {
@@ -250,7 +251,7 @@ class PaperCupsController {
   }
 
   void setCustomer(PapercupsCustomer c, {rebuild = false}) {
-    developer.log("setCustomer.... ${c.id} ${c.externalId}",
+    log("setCustomer.... ${c.id} ${c.externalId}",
         level: 0, name: 'papercups.controller');
     _customer = c;
     stateStreamController.add(PaperCupsCustomerIdentifiedEvent(c, rebuild));
@@ -261,22 +262,21 @@ class PaperCupsController {
     if (props.customer != null &&
         props.customer.externalId != null &&
         (_customer == null || _customer.createdAt == null)) {
-      developer.log("identity getCustomerDetailsFromMetadata",
+      log("identity getCustomerDetailsFromMetadata",
           level: 0, name: 'papercups.controller');
       return getCustomerDetailsFromMetadata(props, _customer, setCustomer);
     } else if (_customer == null) {
       if (create == true) {
-        developer.log("identity getCustomerDetails",
+        log("identity getCustomerDetails",
             level: 0, name: 'papercups.controller');
         return getCustomerDetails(props, _customer, setCustomer);
       } else {
-        developer.log("identity no customer, and wasn't created",
+        log("identity no customer, and wasn't created",
             level: 0, name: 'papercups.controller');
         return Future<PapercupsCustomer>.value(_customer);
       }
     } else {
-      developer.log("identity existing customer",
-          level: 0, name: 'papercups.controller');
+      log("identity existing customer", level: 0, name: 'papercups.controller');
       return Future<PapercupsCustomer>.value(_customer);
     }
   }
@@ -343,11 +343,10 @@ class PaperCupsController {
   Future<Update> fetch(Props props, Conversation conversation,
       {bool noDefaultLoad = false}) {
     Completer<Update> _completer = Completer<Update>();
-    developer.log("fetch to ${conversation}",
-        level: 0, name: 'papercups.controller');
+    log("fetch to ${conversation}", level: 0, name: 'papercups.controller');
     identify(props).then((customer) {
       if (conversation == null || conversation.id != null) {
-        developer.log("Updating customer history",
+        log("Updating customer history",
             level: 0, name: 'papercups.controller');
         getCustomerHistoryEx(c: _customer, p: props, setCustomer: setCustomer)
             .then((Inbox inbox) {
@@ -373,7 +372,7 @@ class PaperCupsController {
           }
         });
       } else {
-        developer.log("Setting channel to ${conversation}",
+        log("Setting channel to ${conversation}",
             level: 0, name: 'papercups.controller');
         _completer.complete(Update(conversation, conversation));
       }
@@ -413,7 +412,7 @@ class PaperCupsController {
 
   void _shoutMessage(Props props, Conversation conv, PapercupsMessage msg,
       Future<ConversationPair> channel) {
-    developer.log("say message, add to conversation",
+    log("say message, add to conversation",
         level: 0, name: 'papercups.controller');
     conv.messages.add(msg);
     stateStreamController.add(PaperCupsConversationMessageSendEvent(
@@ -423,34 +422,38 @@ class PaperCupsController {
     if (_socket != null && _socket.isConnected) {
       channel.then((value) {
         msg.customer = value.customer;
-        developer.log(
-            "setCustomer.... ${msg.customer.id} ${msg.customer.externalId}",
-            level: 0,
-            name: 'papercups.controller');
         assert(msg != null && msg.customer != null);
+        log("setCustomer.... ${msg.customer.id} ${msg.customer.externalId}",
+            level: 0, name: 'papercups.controller');
         stateStreamController.add(PaperCupsConversationMessageSending(
             channel: value.channel, conversationId: msg.conversationId));
 
-        var push = value.channel.push(
-          "shout",
-          {
-            "body": msg.body,
-            "customer_id": msg.customer.id,
-            "sent_at": msg.createdAt.toIso8601String(),
-          },
-        );
-        push.future.then((response) {
-          stateStreamController.add(PaperCupsConversationMessageDone(
-              channel: value.channel, conversationId: msg.conversationId));
-          if (response.isError || response.isTimeout) {
-            msg.sentAt = null;
-          } else {
-            updateUserMetadataEx(props, msg.customer, msg.customer.id);
-          }
-        }, onError: (error) {
-          stateStreamController.add(PaperCupsConversationMessageDone(
-              channel: value.channel, conversationId: msg.conversationId));
-        });
+        if (value.channel == null) {
+          log("couldn't create a realtime connection to channel",
+              level: 0, name: 'papercups.controller');
+          stateStreamController.addError("No connection to channel");
+        } else {
+          var push = value.channel.push(
+            "shout",
+            {
+              "body": msg.body,
+              "customer_id": msg.customer.id,
+              "sent_at": msg.createdAt.toIso8601String(),
+            },
+          );
+          push.future.then((response) {
+            stateStreamController.add(PaperCupsConversationMessageDone(
+                channel: value.channel, conversationId: msg.conversationId));
+            if (response.isError || response.isTimeout) {
+              msg.sentAt = null;
+            } else {
+              updateUserMetadataEx(props, msg.customer, msg.customer.id);
+            }
+          }, onError: (error) {
+            stateStreamController.add(PaperCupsConversationMessageDone(
+                channel: value.channel, conversationId: msg.conversationId));
+          });
+        }
       }, onError: (error) {
         stateStreamController.addError(error);
       });
@@ -465,11 +468,17 @@ class PaperCupsController {
     PapercupsMessage msg,
     PaperCupsViewController view,
   ) async {
+    if (_socket == null || _socket.isConnected == false) {
+      stateStreamController.addError("Not connected");
+      return;
+    }
+
+    log('conversationChannel...');
     PhoenixChannel conversationChannel =
         _conversationChannel.containsKey(conv.id)
             ? _conversationChannel[conv.id]
             : null;
-    developer.log("conversationChannel == .... ${conversationChannel}",
+    log("conversationChannel == .... ${conversationChannel}",
         level: 0, name: 'papercups.controller');
     _shoutMessage(
         p,
@@ -486,7 +495,9 @@ class PaperCupsController {
                 customer: identify(p, create: true))
             // we already have all three components (channel, conversation, customer)
             : Future<ConversationPair>.value(ConversationPair(
-                channel: _channel, customer: _customer, conversation: conv)));
+                channel: conversationChannel,
+                customer: _customer,
+                conversation: conv)));
   }
 }
 
@@ -514,7 +525,7 @@ class PaperCupsViewController {
     String previousConversationId =
         prevConversation != null ? prevConversation.id : null;
     String newConversationId = conversation != null ? conversation.id : null;
-    developer.log("selecting conversation id: ${newConversationId}",
+    log("selecting conversation id: ${newConversationId}",
         level: 0, name: 'papercups.controller');
     //_messages.clear();
     if (_controller.conversations.containsKey(newConversationId)) {
@@ -526,12 +537,12 @@ class PaperCupsViewController {
       //onconversationunloaded(previousConversationId);
       //_conversationId = conversationId;
       if (newConversationId == null) {
-        developer.log("reset messages: ${newConversationId}",
+        log("reset messages: ${newConversationId}",
             level: 0, name: 'papercups.controller');
         _conversation = null;
         _controller.setConversationChannel(newConversationId, null);
       } else {
-        developer.log("join conversation id: ${newConversationId}",
+        log("join conversation id: ${newConversationId}",
             level: 0, name: 'papercups.controller');
         _conversation = _controller.conversations[newConversationId];
         _controller.join(_controller.conversations[newConversationId]);
@@ -544,7 +555,7 @@ class PaperCupsViewController {
       //onconversationloaded(newConversationId);
       return true;
     } else {
-      developer.log("reset messages: ${newConversationId}",
+      log("reset messages: ${newConversationId}",
           level: 0, name: 'papercups.controller');
       _controller.setConversationChannel(previousConversationId, null);
       _controller.stateStreamController.add(PaperCupsConversationUnloadEvent(
@@ -772,13 +783,13 @@ class _PaperCupsWidgetState2 extends State<PaperCupsWidgetB>
   }
 
   void setCustomer(PapercupsCustomer c, {rebuild = false}) {
-    developer.log("setCustomer.... ${c.id} ${c.externalId}",
+    log("setCustomer.... ${c.id} ${c.externalId}",
         level: 0, name: 'papercups.controller');
     if (rebuild && mounted) setState(() {});
   }
 
   void setConversation(Conversation c) {
-    developer.log("setConversation.... ${c.id} ${c.messages.length}",
+    log("setConversation.... ${c.id} ${c.messages.length}",
         level: 0, name: 'papercups.controller');
     if (mounted) setState(() {});
   }
