@@ -30,6 +30,13 @@ class Conversation {
 
   /// Messages part of a conversation
   List<PapercupsMessage> messages;
+  PapercupsMessage get first {
+    return messages.isNotEmpty ? messages[0] : null;
+  }
+
+  PapercupsMessage get last {
+    return messages.isNotEmpty ? messages[messages.length - 1] : null;
+  }
 
   Conversation({
     this.accountId,
