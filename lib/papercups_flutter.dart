@@ -301,7 +301,7 @@ class PaperCupsController {
               conversation: conversation,
               channel: conv,
               customer: identifiedCustomer));
-        }).catchError((error) {
+        }, onError: (error) {
           stateStreamController.addError(error);
           completer.completeError(error);
         });
@@ -344,32 +344,31 @@ class PaperCupsController {
       {bool noDefaultLoad = false}) {
     Completer<Update> _completer = Completer<Update>();
     _logger.log(Level.FINEST, "fetch to ${conversation}");
-    identify(props).then((customer) {
+    identify(props).then((customer) async {
       if (conversation == null || conversation.id != null) {
         _logger.log(Level.FINEST, "Updating customer history");
-        getCustomerHistoryEx(c: _customer, p: props, setCustomer: setCustomer)
-            .then((Inbox inbox) {
-          if (inbox.failed) {
-            //ondisconnected();
-            stateStreamController.add(PaperCupsDisconnectedEvent());
-            _completer
-                .completeError("An error occured while getting the inbox");
-          } else {
-            conversations.clear();
-            if (inbox.conversations != null)
-              conversations.addAll(inbox.conversations);
+        Inbox inbox = await getCustomerHistoryEx(
+            c: _customer, p: props, setCustomer: setCustomer);
+        if (inbox.failed) {
+          //ondisconnected();
+          stateStreamController.add(PaperCupsDisconnectedEvent());
+          _completer.completeError("An error occured while getting the inbox");
+        } else {
+          conversations.clear();
+          if (inbox.conversations != null)
+            conversations.addAll(inbox.conversations);
 
-            String selectedChannel = null;
-            if (conversation == null &&
-                inbox.conversationId != null &&
-                noDefaultLoad == false)
-              selectedChannel = inbox.conversationId;
-            else
-              selectedChannel = conversation != null ? conversation.id : null;
-            _completer.complete(
-                Update(conversation, Conversation(id: selectedChannel)));
-          }
-        });
+          String selectedChannel = null;
+          if (conversation == null &&
+              inbox.conversationId != null &&
+              noDefaultLoad == false)
+            selectedChannel = inbox.conversationId;
+          else
+            selectedChannel = conversation != null ? conversation.id : null;
+
+          var result = Update(conversation, Conversation(id: selectedChannel));
+          _completer.complete(result);
+        }
       } else {
         _logger.log(Level.FINEST, "Setting channel to ${conversation}");
         _completer.complete(Update(conversation, conversation));
@@ -383,6 +382,7 @@ class PaperCupsController {
 
   Future<PhoenixSocket> retry(Props props, {PhoenixSocketOptions options}) {
     PhoenixSocket socket = _socket;
+    _logger.log(Level.FINEST, "retry connection....");
     if (socket != null && socket.isConnected == false) {
       _socket = null;
       _conversationChannel.clear();
@@ -390,6 +390,7 @@ class PaperCupsController {
       socket.dispose();
       return connect(props, retry: true, options: options);
     } else {
+      stateStreamController.add(PaperCupsConnectedEvent());
       return Future<PhoenixSocket>.value(socket);
     }
   }
@@ -431,60 +432,55 @@ class PaperCupsController {
         stateStreamController.addError("No connection to channel");
       } else {
         var channel = value.channel;
-        if (value.channel.canPush == true) {
-          try {
-            var wasReplied = false;
-            var push = value.channel.push(
-                "shout",
-                {
-                  "body": msg.body,
-                  "customer_id": msg.customer.id,
-                  "sent_at": msg.createdAt.toIso8601String(),
-                },
-                new Duration(seconds: 20));
 
-            channel
-                .onPushReply(PhoenixChannelEvent.custom("shout"))
-                .then((message) {
-              var replyProps = message.props[4] as Map<String, dynamic>;
-              if (replyProps["type"] == "reply") {
-                wasReplied = true;
-                try {
-                  push.trigger(PushResponse.fromMessage(message));
-                } catch (e) {
-                  _logger.log(Level.FINEST, "exception:", e);
-                }
+        try {
+          var wasReplied = false;
+          var push = value.channel.push(
+              "shout",
+              {
+                "body": msg.body,
+                "customer_id": msg.customer.id,
+                "sent_at": msg.createdAt.toIso8601String(),
+              },
+              new Duration(seconds: 20));
 
-                msg.id = replyProps["id"];
-                msg.sentAt = replyProps["sent_at"] != null
-                    ? DateTime.tryParse(replyProps["sent_at"])
-                    : null;
-                stateStreamController.add(PaperCupsConversationMessageDone(
-                    channel: channel, conversationId: msg.conversationId));
-                updateUserMetadataEx(props, msg.customer, msg.customer.id);
+          channel
+              .onPushReply(PhoenixChannelEvent.custom("shout"))
+              .then((message) {
+            var replyProps = message.props[4] as Map<String, dynamic>;
+            if (replyProps["type"] == "reply") {
+              wasReplied = true;
+              try {
+                push.trigger(PushResponse.fromMessage(message));
+              } catch (e) {
+                _logger.log(Level.FINEST, "exception:", e);
               }
-            });
 
-            push.future.then((value) {}).catchError((error) {
-              if (!(error is ChannelTimeoutException)) {
-                _logger.log(Level.FINEST, "exception:", error);
-              } else {
-                if (wasReplied == false) {
-                  _logger.log(Level.FINEST, "exception:", error);
-                }
-              }
-            });
-          } catch (e) {
-            if (!(e is ChannelTimeoutException)) {
-              _logger.log(Level.FINEST, "exception: $e ${e}");
+              msg.id = replyProps["id"];
+              msg.sentAt = replyProps["sent_at"] != null
+                  ? DateTime.tryParse(replyProps["sent_at"])
+                  : null;
               stateStreamController.add(PaperCupsConversationMessageDone(
-                  channel: value.channel, conversationId: msg.conversationId));
+                  channel: channel, conversationId: msg.conversationId));
+              updateUserMetadataEx(props, msg.customer, msg.customer.id);
             }
+          });
+
+          push.future.then((value) {}).catchError((error) {
+            if (!(error is ChannelTimeoutException)) {
+              _logger.log(Level.FINEST, "exception:", error);
+            } else {
+              if (wasReplied == false) {
+                _logger.log(Level.FINEST, "exception:", error);
+              }
+            }
+          });
+        } catch (e) {
+          if (!(e is ChannelTimeoutException)) {
+            _logger.log(Level.FINEST, "exception: $e ${e}");
+            stateStreamController.add(PaperCupsConversationMessageDone(
+                channel: value.channel, conversationId: msg.conversationId));
           }
-        } else {
-          _logger.log(
-              Level.FINEST, "couldn't create a realtime connection to channel");
-          stateStreamController.addError("No connection to channel");
         }
       }
     }, onError: (error) {
