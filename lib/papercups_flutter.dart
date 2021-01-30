@@ -1,6 +1,7 @@
 library papercups_flutter;
 
 // Imports.
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'utils/utils.dart';
 import 'widgets/widgets.dart';
@@ -975,6 +976,18 @@ class _PaperCupsWidgetState2 extends State<PaperCupsWidgetB>
                     gradientRight: null,
                     colorTextLeft: textBlack ? Colors.black : Colors.white,
                     colorTextRight: textBlack ? Colors.black : Colors.white,
+                    copied: (String text) {
+                      HapticFeedback.vibrate();
+                      Clipboard.setData(ClipboardData(text: text));
+                      Alert.show(
+                        "Text copied to clipboard",
+                        context,
+                        textStyle: Theme.of(context).textTheme.bodyText2,
+                        backgroundColor: Theme.of(context).bottomAppBarColor,
+                        gravity: Alert.bottom,
+                        duration: Alert.lengthLong,
+                      );
+                    },
                     //? Colors.black : Colors.white : Theme.of(context).textTheme.bodyText1.color
                   ),
                 ),

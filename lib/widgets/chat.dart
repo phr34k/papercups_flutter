@@ -2,15 +2,10 @@ import 'dart:async';
 import 'dart:math';
 import 'dart:ui';
 import 'package:intl/intl.dart';
-
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import '../models/models.dart';
-
-import '../utils/utils.dart';
-import 'widgets.dart';
 
 class ChatMessages extends StatelessWidget {
   final Props props;
@@ -21,8 +16,7 @@ class ChatMessages extends StatelessWidget {
   final timeagoLocale;
   final String sendingText;
   final String sentText;
-  //final bool textBlack;
-
+  final Function(String) copied;
   final Color colorTextLeft;
   final Color colorTextRight;
   final Color colorLeft;
@@ -45,6 +39,7 @@ class ChatMessages extends StatelessWidget {
     this.gradientRight,
     this.colorTextLeft,
     this.colorTextRight,
+    this.copied,
     Key key,
   }) : super(key: key);
   @override
@@ -184,16 +179,7 @@ class _ChatMessageState extends State<ChatMessage> {
         });
       },
       onLongPress: () {
-        HapticFeedback.vibrate();
-        Clipboard.setData(ClipboardData(text: msg.body));
-        Alert.show(
-          "Text copied to clipboard",
-          context,
-          textStyle: Theme.of(context).textTheme.bodyText2,
-          backgroundColor: Theme.of(context).bottomAppBarColor,
-          gravity: Alert.bottom,
-          duration: Alert.lengthLong,
-        );
+        widget.container.copied(msg.body);
       },
       onTapUp: (_) {
         Timer(
