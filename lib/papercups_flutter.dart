@@ -223,7 +223,9 @@ class PaperCupsController {
       stateStreamController.add(PaperCupsConversationMessageReceivedEvent(
         messages: messages,
       ));
-    });
+    }, onError: (error) {
+      _logger.log(Level.SHOUT, error.toString());
+    }, cancelOnError: false);
 
     statusEvents.stream.listen((event) {
       //Set the conversation channel
