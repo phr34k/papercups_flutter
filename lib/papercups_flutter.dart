@@ -967,7 +967,15 @@ class _PaperCupsWidgetState2 extends State<PaperCupsWidgetB>
                     widget.timeagoLocale,
                     widget.sendingText,
                     widget.sentText,
-                    textBlack,
+                    colorLeft: widget.props.primaryColor,
+                    colorRight: Theme.of(context).brightness == Brightness.light
+                        ? brighten(Theme.of(context).disabledColor, 80)
+                        : Color(0xff282828),
+                    gradientLeft: widget.props.primaryGradient,
+                    gradientRight: null,
+                    colorTextLeft: textBlack ? Colors.black : Colors.white,
+                    colorTextRight: textBlack ? Colors.black : Colors.white,
+                    //? Colors.black : Colors.white : Theme.of(context).textTheme.bodyText1.color
                   ),
                 ),
                 if (!widget.floatingSendMessage) PoweredBy(),

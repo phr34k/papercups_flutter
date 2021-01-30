@@ -21,7 +21,14 @@ class ChatMessages extends StatelessWidget {
   final timeagoLocale;
   final String sendingText;
   final String sentText;
-  final bool textBlack;
+  //final bool textBlack;
+
+  final Color colorTextLeft;
+  final Color colorTextRight;
+  final Color colorLeft;
+  final Color colorRight;
+  final Gradient gradientLeft;
+  final Gradient gradientRight;
 
   ChatMessages(
     this.props,
@@ -31,8 +38,13 @@ class ChatMessages extends StatelessWidget {
     this.locale,
     this.timeagoLocale,
     this.sendingText,
-    this.sentText,
-    this.textBlack, {
+    this.sentText, {
+    this.colorLeft,
+    this.colorRight,
+    this.gradientLeft,
+    this.gradientRight,
+    this.colorTextLeft,
+    this.colorTextRight,
     Key key,
   }) : super(key: key);
   @override
@@ -54,6 +66,7 @@ class ChatMessages extends StatelessWidget {
             itemCount: messages.length,
             itemBuilder: (context, index) {
               return ChatMessage(
+                container: this,
                 msgs: messages,
                 index: index,
                 props: props,
@@ -63,7 +76,6 @@ class ChatMessages extends StatelessWidget {
                 maxWidth: layout.maxWidth * 0.65,
                 sendingText: sendingText,
                 sentText: sentText,
-                textBlack: textBlack,
               );
             },
           ),
@@ -76,6 +88,7 @@ class ChatMessages extends StatelessWidget {
 class ChatMessage extends StatefulWidget {
   const ChatMessage({
     Key key,
+    @required this.container,
     @required this.msgs,
     @required this.index,
     @required this.props,
@@ -85,9 +98,9 @@ class ChatMessage extends StatefulWidget {
     @required this.timeagoLocale,
     @required this.sendingText,
     @required this.sentText,
-    @required this.textBlack,
   }) : super(key: key);
 
+  final ChatMessages container;
   final List<PapercupsMessage> msgs;
   final int index;
   final Props props;
@@ -97,7 +110,6 @@ class ChatMessage extends StatefulWidget {
   final timeagoLocale;
   final String sendingText;
   final String sentText;
-  final bool textBlack;
 
   @override
   _ChatMessageState createState() => _ChatMessageState();
@@ -222,8 +234,12 @@ class _ChatMessageState extends State<ChatMessage> {
                             isLast)
                         ? Container(
                             decoration: BoxDecoration(
-                              color: widget.props.primaryColor,
-                              gradient: widget.props.primaryGradient,
+                              color: userSent
+                                  ? widget.container.colorLeft
+                                  : widget.container.colorRight,
+                              gradient: userSent
+                                  ? widget.container.gradientLeft
+                                  : widget.container.gradientRight,
                               shape: BoxShape.circle,
                             ),
                             child: CircleAvatar(
@@ -242,18 +258,22 @@ class _ChatMessageState extends State<ChatMessage> {
                                               .substring(0, 1)
                                               .toUpperCase(),
                                           style: TextStyle(
-                                              color: widget.textBlack
-                                                  ? Colors.black
-                                                  : Colors.white),
+                                              color: userSent
+                                                  ? widget
+                                                      .container.colorTextLeft
+                                                  : widget.container
+                                                      .colorTextRight),
                                         )
                                       : Text(
                                           msg.user.fullName
                                               .substring(0, 1)
                                               .toUpperCase(),
                                           style: TextStyle(
-                                              color: widget.textBlack
-                                                  ? Colors.black
-                                                  : Colors.white),
+                                              color: userSent
+                                                  ? widget
+                                                      .container.colorTextLeft
+                                                  : widget.container
+                                                      .colorTextRight),
                                         ),
                             ),
                           )
@@ -270,11 +290,11 @@ class _ChatMessageState extends State<ChatMessage> {
                 Container(
                   decoration: BoxDecoration(
                     color: userSent
-                        ? widget.props.primaryColor
-                        : Theme.of(context).brightness == Brightness.light
-                            ? brighten(Theme.of(context).disabledColor, 80)
-                            : Color(0xff282828),
-                    gradient: userSent ? widget.props.primaryGradient : null,
+                        ? widget.container.colorLeft
+                        : widget.container.colorRight,
+                    gradient: userSent
+                        ? widget.container.gradientLeft
+                        : widget.container.gradientRight,
                     borderRadius: BorderRadius.circular(4),
                   ),
                   constraints: BoxConstraints(
@@ -294,10 +314,8 @@ class _ChatMessageState extends State<ChatMessage> {
                     styleSheet: MarkdownStyleSheet(
                       p: TextStyle(
                         color: userSent
-                            ? widget.textBlack
-                                ? Colors.black
-                                : Colors.white
-                            : Theme.of(context).textTheme.bodyText1.color,
+                            ? widget.container.colorTextLeft
+                            : widget.container.colorTextRight,
                       ),
                       a: TextStyle(
                         color: userSent
