@@ -219,7 +219,7 @@ class PaperCupsController {
     var statusEvents = StreamController<PaperCupsConversationEvent>();
     var controller = StreamController<List<PapercupsMessage>>();
     controller.stream.listen((messages) {
-      conversation.messages.addAll(messages);
+      conversations[conversation.id].messages.addAll(messages);
       stateStreamController.add(PaperCupsConversationMessageReceivedEvent(
         messages: messages,
       ));
