@@ -23,6 +23,9 @@ class ChatMessages extends StatelessWidget {
   final Color colorRight;
   final Gradient gradientLeft;
   final Gradient gradientRight;
+  final BorderRadiusGeometry borderRadiusGeometryLeft;
+  final BorderRadiusGeometry borderRadiusGeometryRight;
+  final bool showAvatar;
 
   ChatMessages(
     this.props,
@@ -39,6 +42,9 @@ class ChatMessages extends StatelessWidget {
     this.gradientRight,
     this.colorTextLeft,
     this.colorTextRight,
+    this.borderRadiusGeometryLeft,
+    this.borderRadiusGeometryRight,
+    this.showAvatar = true,
     this.copied,
     Key key,
   }) : super(key: key);
@@ -205,7 +211,7 @@ class _ChatMessageState extends State<ChatMessage> {
               mainAxisSize: MainAxisSize.max,
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                if (!userSent)
+                if (!userSent && widget.container.showAvatar)
                   Padding(
                     padding: EdgeInsets.only(
                       right: 14,
@@ -279,16 +285,18 @@ class _ChatMessageState extends State<ChatMessage> {
                     gradient: userSent
                         ? widget.container.gradientLeft
                         : widget.container.gradientRight,
-                    borderRadius: BorderRadius.circular(4),
+                    borderRadius: userSent
+                        ? widget.container.borderRadiusGeometryLeft
+                        : widget.container.borderRadiusGeometryRight,
                   ),
                   constraints: BoxConstraints(
                     maxWidth: maxWidth,
                   ),
                   margin: EdgeInsets.only(
-                    top: (isFirst) ? 15 : 4,
-                    bottom: 4,
-                    right: userSent ? 18 : 0,
-                  ),
+                      top: (isFirst) ? 15 : 4,
+                      bottom: 4,
+                      right: userSent ? 18 : 0,
+                      left: !userSent && !widget.container.showAvatar ? 18 : 0),
                   padding: const EdgeInsets.symmetric(
                     vertical: 8,
                     horizontal: 14,
@@ -355,7 +363,7 @@ class _ChatMessageState extends State<ChatMessage> {
                 child: Text(
                   widget.sending
                       ? widget.sendingText
-                      : "${widget.sentText} ${timeago.format(msg.createdAt.toLocal())}",
+                      : "${widget.sentText} ${timeago.format(msg.sentAt.toLocal())}",
                   textAlign: TextAlign.end,
                   style: TextStyle(color: Colors.grey),
                 ),
@@ -407,7 +415,7 @@ class TimeWidget extends StatelessWidget {
       child: Padding(
         padding: EdgeInsets.only(bottom: 5.0, left: 4, right: 4),
         child: Text(
-          TimeOfDay.fromDateTime(msg.createdAt.toLocal()).format(context),
+          TimeOfDay.fromDateTime(msg.sentAt.toLocal()).format(context),
           style: TextStyle(
             color: Theme.of(context).textTheme.bodyText1.color.withAlpha(100),
             fontSize: 10,

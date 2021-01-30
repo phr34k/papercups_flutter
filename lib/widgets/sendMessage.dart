@@ -165,7 +165,7 @@ void _sendMessage(
   fn.requestFocus();
   if (text.trim().isEmpty || text == null) return null;
   tc.clear();
-  var timeNow = DateTime.now();
+  var timeNow = DateTime.now().toUtc();
   var msg = PapercupsMessage(
     body: text,
     createdAt: timeNow,
