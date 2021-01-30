@@ -67,7 +67,6 @@ class ChatMessages extends StatelessWidget {
             itemBuilder: (context, index) {
               return ChatMessage(
                 container: this,
-                msgs: messages,
                 index: index,
                 props: props,
                 sending: sending,
@@ -89,7 +88,6 @@ class ChatMessage extends StatefulWidget {
   const ChatMessage({
     Key key,
     @required this.container,
-    @required this.msgs,
     @required this.index,
     @required this.props,
     @required this.sending,
@@ -101,7 +99,6 @@ class ChatMessage extends StatefulWidget {
   }) : super(key: key);
 
   final ChatMessages container;
-  final List<PapercupsMessage> msgs;
   final int index;
   final Props props;
   final bool sending;
@@ -147,14 +144,15 @@ class _ChatMessageState extends State<ChatMessage> {
             opacity = 1;
           });
       });
-    var msg = widget.msgs[widget.index];
+    var msg = widget.container.messages[widget.index];
 
     bool userSent = true;
     if (msg.userId != null) userSent = false;
 
     var text = msg.body;
-    var nextMsg = widget.msgs[min(widget.index + 1, widget.msgs.length - 1)];
-    var isLast = widget.index == widget.msgs.length - 1;
+    var nextMsg = widget.container
+        .messages[min(widget.index + 1, widget.container.messages.length - 1)];
+    var isLast = widget.index == widget.container.messages.length - 1;
     var isFirst = widget.index == 0;
 
     if (!isLast) {
@@ -229,7 +227,7 @@ class _ChatMessageState extends State<ChatMessage> {
                       top: (isFirst) ? 15 : 4,
                       bottom: 5,
                     ),
-                    child: (widget.msgs.length == 1 ||
+                    child: (widget.container.messages.length == 1 ||
                             nextMsg.userId != msg.userId ||
                             isLast)
                         ? Container(
