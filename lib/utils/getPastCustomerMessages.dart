@@ -153,18 +153,29 @@ Future<Map<String, dynamic>> getPastCustomerMessagesEx(
       developer.log("iterate through messages...",
           level: 0, name: 'papercups.controller');
 
+      List<dynamic> messages = data["messages"] as List<dynamic>;
+      dynamic lastMessage = messages.last;
+      var createdAt = DateTime.tryParse(lastMessage["created_at"]);
+      createdAt = createdAt.toUtc();
+      var sentAt = DateTime.tryParse(lastMessage["sent_at"]);
+      sentAt = sentAt.toUtc();
+      developer.log("message ${createdAt.toString()} ${sentAt.toString()}",
+          level: 0, name: 'papercups.controller');
+
       // For every message generate a PapercupsMessage object and add it to the list.
       data["messages"].forEach((val) {
-        developer.log("message ${val.toString()}",
-            level: 0, name: 'papercups.controller');
+        var createdAt = DateTime.tryParse(val["created_at"]);
+        createdAt = createdAt.toUtc();
+        var sentAt = DateTime.tryParse(val["sent_at"]);
+        sentAt = sentAt.toUtc();
 
         //String conversation_id = val["conversation_id"] as String;
         conv.messages.add(
           PapercupsMessage(
             accountId: val["account_id"].toString(),
             body: val["body"],
-            createdAt: DateTime.tryParse(val["created_at"]),
-            sentAt: DateTime.tryParse(val["sent_at"]),
+            createdAt: createdAt,
+            sentAt: sentAt,
             conversationId: val["conversation_id"].toString(),
             customerId: val["customer_id"].toString(),
             customer: c,

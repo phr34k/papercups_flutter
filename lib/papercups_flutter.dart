@@ -401,8 +401,8 @@ class PaperCupsController {
   PapercupsMessage messageFromString(Props props) {
     return PapercupsMessage(
       body: props.greeting,
-      sentAt: DateTime.now(),
-      createdAt: DateTime.now(),
+      sentAt: DateTime.now().toUtc(),
+      createdAt: DateTime.now().toUtc(),
       accountId: props.accountId,
       user: User(
         fullName: props.companyName,
@@ -976,6 +976,8 @@ class _PaperCupsWidgetState2 extends State<PaperCupsWidgetB>
                     gradientRight: null,
                     colorTextLeft: textBlack ? Colors.black : Colors.white,
                     colorTextRight: textBlack ? Colors.black : Colors.white,
+                    borderRadiusGeometryLeft: BorderRadius.circular(4),
+                    borderRadiusGeometryRight: BorderRadius.circular(4),
                     copied: (String text) {
                       HapticFeedback.vibrate();
                       Clipboard.setData(ClipboardData(text: text));
